@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eks-mongo-todo
+  labels:
+    app.kubernetes.io/name: eks-mongo-todo
+    app.kubernetes.io/part-of: eks-mongo-todo
