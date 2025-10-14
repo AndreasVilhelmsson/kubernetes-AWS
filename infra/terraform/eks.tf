@@ -14,9 +14,9 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      min_size     = 1
-      max_size     = 2
-      desired_size = 1
+      min_size       = 1
+      max_size       = 2
+      desired_size   = 1
       instance_types = ["t3.small"]
     }
   }
@@ -39,7 +39,7 @@ module "eks" {
     vpc-cni    = { most_recent = true }
     kube-proxy = { most_recent = true }
     coredns = {
-      most_recent = true
+      most_recent       = true
       resolve_conflicts = "OVERWRITE"
       timeouts = {
         create = "30m"

@@ -1,0 +1,18 @@
+# ---- Build ----
+ARG DOTNET_VERSION=8.0
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
+WORKDIR /src
+COPY *.csproj ./
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet restore --disable-parallel --verbosity=minimal
+COPY . .
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet publish -c Release -o /out --no-restore
+
+# ---- Runtime ----
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}
+WORKDIR /app
+COPY --from=build /out .
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+EXPOSE 8080
+ENTRYPOINT ["dotnet","todo-backend.dll"]  # byt till ditt DLL-namn
