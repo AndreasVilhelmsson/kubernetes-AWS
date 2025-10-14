@@ -14,11 +14,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -27,15 +25,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push (linux/amd64)
+      - name: Build & push (linux/amd64)
         uses: docker/build-push-action@v6
         with:
           context: ./app/todo-backend
           file: ./app/todo-backend/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64        # undviker ARM/M1-strul
           push: true
           tags: |
-            ghcr.io/andreasvilhelmsson/todo-backend:0.1.${{ github.run_number }}
-            ghcr.io/andreasvilhelmsson/todo-backend:latest
+            ghcr.io/andreasvilhelmsson/todo-backend-v2:0.1.${{ github.run_number }}
+            ghcr.io/andreasvilhelmsson/todo-backend-v2:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
