@@ -3,22 +3,16 @@ kind: Deployment
 metadata:
   name: todo-backend
   namespace: eks-mongo-todo
-  labels:
-    app: todo-backend
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: todo-backend
+  selector: { matchLabels: { app: todo-backend } }
   template:
-    metadata:
-      labels:
-        app: todo-backend
+    metadata: { labels: { app: todo-backend } }
     spec:
-      imagePullSecrets:
-        - name: ghcr-creds    # detta är nyckeln vi skapade tidigare
+      imagePullSecrets:        # ta bort blocket om paketet är PUBLIC
+        - name: ghcr-creds
       containers:
         - name: api
-          image: ghcr.io/andreasvilhelmsson/todo-backend:0.1.3
-          ports:
-            - containerPort: 8080
+          image: ghcr.io/andreasvilhelmsson/todo-backend-v2:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]

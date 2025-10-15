@@ -1,4 +1,46 @@
-variable "region" { default = "eu-west-1" }
+# ==== GHCR / container registry ====
+variable "ghcr_username" {
+  description = "GitHub användarnamn (för GHCR)."
+  type        = string
+  default     = "andreasvilhelmsson" # byt vid behov
+}
+variable "ghcr_token" {
+  description = "PAT för GHCR (write/read). LÄS IN VIA TF_VAR_ghcr_token."
+  type        = string
+  sensitive   = true
+  default     = "" # tomt => ingen secret skapas
+}
+variable "create_ghcr_secret" {
+  description = "Ska vi skapa imagePullSecrets? (behövs bara för privata images)"
+  type        = bool
+  default     = true
+}
+variable "kubeconfig_path" {
+  description = "Sökväg till kubeconfig som Terraform ska använda."
+  type        = string
+  default     = "${path.module}/../../kubeconfig.yaml"
+}
+
+variable "kube_context" {
+  description = "Kube context / namn på klustret i kubeconfig."
+  type        = string
+  default     = "todo-eks"
+}
+
+variable "k8s_namespace" {
+  description = "Namnet på ditt Kubernetes-namespace."
+  type        = string
+  default     = "eks-mongo-todo"
+}
+variable "ghcr_email" {
+  type    = string
+  default = "dev@example.com"
+}
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "eu-west-1"
+}
 variable "cluster_name" { default = "todo-eks" }
 
 # Eget VPC (unika CIDRs)

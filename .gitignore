@@ -16,6 +16,7 @@ kubeconfig*.yaml
 .env
 .env.local
 
+.docker-cache/
 # IDE
 .vscode/
 .idea/
