@@ -1,6 +1,7 @@
 name: build-backend
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'app/todo-backend/**'

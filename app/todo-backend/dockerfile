@@ -1,20 +1,16 @@
-# ---------- Build ----------
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-WORKDIR /src
+WORKDIR /source
 
-# bättre cache: kopiera bara csproj först
-COPY *.csproj ./
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet restore --disable-parallel --verbosity minimal -p:RestoreSkipNuGetAudit=true
+COPY todo-backend.csproj .
+RUN dotnet restore
 
-# nu resten av källan
 COPY . .
-RUN dotnet publish -c Release -o /out
+RUN dotnet publish -c Release -o /app
 
-# ---------- Runtime ----------
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
-COPY --from=build /out .
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+COPY --from=build /app .
 EXPOSE 8080
-ENTRYPOINT ["dotnet","todo-backend.dll"]   # dll-namnet = <ProjectName>.dll
+ENV ASPNETCORE_URLS=http://+:8080/
+
+ENTRYPOINT ["dotnet", "todo-backend.dll"]
