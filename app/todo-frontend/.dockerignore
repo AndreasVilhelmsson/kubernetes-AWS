@@ -1,0 +1,8 @@
+.git
+dist
+node_modules
+*.log
+Dockerfile
+*.local
+.DS_Store
+*.swp

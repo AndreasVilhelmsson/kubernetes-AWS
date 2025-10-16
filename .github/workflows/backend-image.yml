@@ -11,12 +11,50 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore NuGet cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('app/todo-backend/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        working-directory: app/todo-backend
+        run: dotnet restore
+
+      - name: Build application
+        working-directory: app/todo-backend
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Extract metadata (labels & tags)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/andreasvilhelmsson/todo-backend-v2
+          tags: |
+            type=raw,value=0.1.${{ github.run_number }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=0.1.${{ github.run_number }}
 
       - name: Enable QEMU (arm64 emulation)
         uses: docker/setup-qemu-action@v3
@@ -38,8 +76,7 @@ jobs:
           file: ./app/todo-backend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/andreasvilhelmsson/todo-backend-v2:0.1.${{ github.run_number }}
-            ghcr.io/andreasvilhelmsson/todo-backend-v2:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=todo-backend
+          cache-to: type=gha,mode=max,scope=todo-backend

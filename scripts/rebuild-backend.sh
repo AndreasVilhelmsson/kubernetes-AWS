@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # =======================================================
-# 🧱 rebuild.sh — Bygger, pushar och uppdaterar backend
+# 🧱 rebuild.sh — Bygger, pushar och uppdaterar backend (todo-backend-v2)
 # =======================================================
 #  - Validerar Docker/Buildx och (valfritt) kubectl
 #  - Sätter upp/återanvänder builder "multi" (docker-container)
@@ -28,7 +28,7 @@ NS="eks-mongo-todo"
 CACHE_DIR="$ROOT/.buildx-cache"
 
 REG="ghcr.io/andreasvilhelmsson"
-IMAGE="$REG/todo-backend"
+IMAGE="$REG/todo-backend-v2"
 VER="${1:-0.1.$(date +%y%m%d%H%M)}"
 
 # provenance: default true (buildx standard). Sätt BUILD_PROVENANCE=false för att stänga av.
