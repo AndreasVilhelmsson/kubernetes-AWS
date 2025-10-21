@@ -30,3 +30,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Net
+bin/
+obj/
