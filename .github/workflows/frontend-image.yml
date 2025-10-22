@@ -1,0 +1,92 @@
+name: build-frontend
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver/valfri tagg (tomt = 0.1.<run_number>)"
+        required: false
+        default: ""
+      api_base_url:
+        description: "VITE_API_BASE_URL för build (t.ex. /api eller https://api.example.com)"
+        required: false
+        default: "/api"
+  push:
+    paths:
+      - app/todo-frontend/**
+      - .github/workflows/frontend-image.yml
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: ghcr.io/andreasvilhelmsson/todo-frontend
+      VERSION: ${{ inputs.version != '' && inputs.version || format('0.1.{0}', github.run_number) }}
+      API_BASE: ${{ inputs.api_base_url != '' && inputs.api_base_url || '/api' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Preflight: npm cache + snabb build för att fel ska synas tidigt
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/todo-frontend/package-lock.json
+
+      - name: npm ci (preflight)
+        working-directory: app/todo-frontend
+        run: npm ci
+
+      - name: npm build (preflight)
+        working-directory: app/todo-frontend
+        env:
+          VITE_API_BASE_URL: ${{ env.API_BASE }}
+        run: npm run build
+
+      # --- Image metadata
+      - name: Extract metadata (labels & tags)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ env.VERSION }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # --- Buildx + QEMU för multi-arch
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # --- GHCR login
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Bygg & push
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app/todo-frontend
+          file: ./app/todo-frontend/Dockerfile
+          # multi-arch på main, annars bara amd64 (snabbare i PRs/branches)
+          platforms: ${{ github.ref == 'refs/heads/main' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_BASE_URL=${{ env.API_BASE }}
+          cache-from: type=gha,scope=todo-frontend
+          cache-to: type=gha,mode=max,scope=todo-frontend

@@ -6,3 +6,4 @@ obj/
 *.suo
 .vscode/
 .DS_Store
+*.swp

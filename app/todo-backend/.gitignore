@@ -6,3 +6,4 @@ obj/
 *.nupkg
 *.lock.json
 *.log
+*.env

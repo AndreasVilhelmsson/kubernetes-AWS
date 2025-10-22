@@ -6,3 +6,4 @@ Dockerfile
 *.local
 .DS_Store
 *.swp
+.dockerignore
