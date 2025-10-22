@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      IMAGE_NAME: ghcr.io/andreasvilhelmsson/todo-frontend
+      IMAGE_NAME: ghcr.io/andreasvilhelmsson/todo-frontend-v2   # <-- ändrat
       VERSION: ${{ inputs.version != '' && inputs.version || format('0.1.{0}', github.run_number) }}
       API_BASE: ${{ inputs.api_base_url != '' && inputs.api_base_url || '/api' }}
 
@@ -88,5 +88,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VITE_API_BASE_URL=${{ env.API_BASE }}
-          cache-from: type=gha,scope=todo-frontend
-          cache-to: type=gha,mode=max,scope=todo-frontend
+          cache-from: type=gha,scope=todo-frontend-v2     # <-- ändrat
+          cache-to: type=gha,mode=max,scope=todo-frontend-v2  # <-- ändrat
