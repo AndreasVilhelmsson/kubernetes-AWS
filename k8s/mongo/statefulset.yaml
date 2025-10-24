@@ -1,8 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
-metadata:
-  name: mongodb
-  namespace: eks-mongo-todo
+metadata: { name: mongodb, namespace: eks-mongo-todo }
 spec:
   serviceName: mongodb
   replicas: 1
@@ -17,11 +15,10 @@ spec:
             - { name: MONGO_INITDB_ROOT_USERNAME, value: root }
             - { name: MONGO_INITDB_ROOT_PASSWORD, value: changeme }
           ports: [{ containerPort: 27017 }]
-          volumeMounts:
-            - { name: data, mountPath: /data/db }
+          volumeMounts: [{ name: data, mountPath: /data/db }]
   volumeClaimTemplates:
     - metadata: { name: data }
       spec:
-        accessModes: [ReadWriteOnce]
+        accessModes: ["ReadWriteOnce"]
         storageClassName: ebs-gp3
         resources: { requests: { storage: 5Gi } }
