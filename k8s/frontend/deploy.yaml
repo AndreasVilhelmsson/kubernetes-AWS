@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: todo-frontend, namespace: eks-mongo-todo }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: todo-frontend } }
+  template:
+    metadata: { labels: { app: todo-frontend } }
+    spec:
+      containers:
+        - name: web
+          image: "%%IMAGE%%"
+          ports: [{ containerPort: 80 }]

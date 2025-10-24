@@ -1,52 +1,33 @@
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = ">= 20.31"
+  version = "~> 19.0"
 
-  name               = var.cluster_name
-  kubernetes_version = "1.29"
+  cluster_name    = var.cluster_name # t.ex. "todo-eks"
+  cluster_version = "1.29"
 
   vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  subnet_ids = module.vpc.public_subnets
 
-  endpoint_public_access = true
+  cluster_endpoint_public_access = true
 
-  enable_irsa = true
-
+  # Billigaste setup: 1 spot-node
   eks_managed_node_groups = {
     default = {
-      min_size       = 1
-      max_size       = 2
-      desired_size   = 1
-      instance_types = ["t3.small"]
+      ami_type       = "AL2_x86_64"
+      capacity_type  = var.use_spot ? "SPOT" : "ON_DEMAND"
+      instance_types = [var.node_instance_type] # t3.small
+
+      desired_size = var.node_min
+      min_size     = var.node_min
+      max_size     = var.node_max
+
+      labels = {
+        workload = "apps"
+      }
+
+      tags = var.tags
     }
   }
 
-  access_entries = {
-    admin = {
-      principal_arn = "arn:aws:iam::701055076605:user/adminAndreas"
-      policy_associations = {
-        admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
-        }
-      }
-    }
-  }
-
-  addons = {
-    vpc-cni    = { most_recent = true }
-    kube-proxy = { most_recent = true }
-    coredns = {
-      most_recent       = true
-      resolve_conflicts = "OVERWRITE"
-      timeouts = {
-        create = "30m"
-        update = "30m"
-      }
-    }
-  }
+  tags = var.tags
 }
-
-output "cluster_name" { value = module.eks.cluster_name }

@@ -1,18 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
-metadata:
-  name: todo-backend
-  namespace: eks-mongo-todo
+metadata: { name: todo-backend, namespace: eks-mongo-todo }
 spec:
   replicas: 1
   selector: { matchLabels: { app: todo-backend } }
   template:
     metadata: { labels: { app: todo-backend } }
     spec:
-      imagePullSecrets:        # ta bort blocket om paketet är PUBLIC
-        - name: ghcr-creds
       containers:
         - name: api
-          image: ghcr.io/andreasvilhelmsson/todo-backend-v2:0.1.6
-          imagePullPolicy: IfNotPresent
+          image: "%%IMAGE%%"
+          env:
+            - { name: ASPNETCORE_URLS, value: "http://+:8080" }
+            - { name: MONGO_URI, value: "mongodb://root:changeme@mongodb:27017/?authSource=admin" }
           ports: [{ containerPort: 8080 }]
