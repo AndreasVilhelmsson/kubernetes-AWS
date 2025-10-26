@@ -752,6 +752,9 @@ nslookup mongodb
 
 #### Arkitektur Overview
 
+![Översiktsdiagram över hela EKS-miljön](images/infrastructurediagram.jpg)
+*Hög nivå visar trafik från internet via NLB och Ingress till EKS-klustrets frontend, backend och MongoDB.*
+
 **Komponenter:**
 
 1. **Frontend (React + TypeScript + SASS)**
@@ -1156,12 +1159,18 @@ spec:
 - Timeout annotations för långsamma API calls
 - Ingen rewrite - paths skickas som de är till backend
 
+![Nätverksdiagram som beskriver trafikflödet](images/networkdiagram.jpg)
+*Visar hur Internettrafik går via ALB/NLB till Ingress, vidare till Services och respektive pods.*
+
 ![AWS console med Network Load Balancer för todo-eks](images/load-balancer.jpg)
 *AWS Load Balancer Console visar NLB som skapats av Ingress Controller.*
 
 ---
 
 ### 4.4 Säkerhetsdesign
+
+![Säkerhetsdiagram över komponenternas åtkomstkontroller](images/Securitydiagram.jpg)
+*Sammanfattar hur RBAC, Security Groups och IAM/IRSA skyddar trafik mellan komponenterna.*
 
 #### 4.4.1 Nätverkssäkerhet
 
@@ -1788,6 +1797,9 @@ För production skulle vi installera:
 | Network Load Balancer | 1x NLB | ~$16 |
 | Data Transfer | Minimal (dev) | ~$1 |
 | **Total** | | **~$100** |
+
+![Kostnadsöversikt per AWS-tjänst från Cost Explorer](images/kostnad.jpg)
+*Cost Explorer visar hur kostnaden fördelas mellan EKS, EC2, NLB och lagring.*
 
 **Kostnadsoptimering:**
 - Spot instances istället för On-Demand (70% billigare)
