@@ -2105,30 +2105,31 @@ https://github.com/andreasvilhelmsson/eks-mongo-todo
 
 ```mermaid
 flowchart LR
-  subgraph AWS_VPC["AWS VPC (eu-west-1)"]
-    subgraph Public_Subnets["Public subnets"]
-      alb[ALB/NLB (optional)]
+    subgraph AWS_VPC["AWS VPC (eu-west-1)"]
+        subgraph Public_Subnets["Public subnets"]
+            alb[ALB/NLB]
+        end
+        subgraph Private_Subnets["Private subnets"]
+            eks[[EKS Cluster]]
+            subgraph NamespaceEks["Namespace: eks-mongo-todo"]
+                fe[Frontend Deployment]
+                be[Backend Deployment]
+                db[[MongoDB StatefulSet + PVC/EBS]]
+            end
+        end
     end
-    subgraph Private_Subnets["Private subnets"]
-      eks[(EKS Cluster)]
-      subgraph NamespaceEks["Namespace: eks-mongo-todo"]
-        fe[Frontend Deployment]
-        be[Backend Deployment]
-        db[(MongoDB StatefulSet + PVC/EBS)]
-      end
-      eks --> fe
-      eks --> be
-      eks --> db
-    end
-  end
-
-  User((User)) -->|HTTP| alb
-  alb --> fe
-  fe -->|/api| be
-  be --> db
-
-  gh[GitHub Actions] --> ghcr[(GitHub Container Registry)]
-  ghcr --> eks
+    
+    User((User)) -->|HTTP| alb
+    alb --> fe
+    fe -->|/api| be
+    be --> db
+    
+    eks --> fe
+    eks --> be
+    eks --> db
+    
+    gh[GitHub Actions] --> ghcr[[GitHub Container Registry]]
+    ghcr --> eks
 ```
 
 ## Lärdomar och fallgropar
