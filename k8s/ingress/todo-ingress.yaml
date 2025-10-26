@@ -4,16 +4,18 @@ metadata:
   name: todo-ingress
   namespace: eks-mongo-todo
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
 spec:
   ingressClassName: nginx
   rules:
     - http:
         paths:
-          - path: /api(/|$)(.*)
+          - path: /api
             pathType: Prefix
             backend: { service: { name: todo-backend, port: { number: 80 } } }
-          - path: /(.*)
+          - path: /
             pathType: Prefix
             backend: { service: { name: todo-frontend, port: { number: 80 } } }
             

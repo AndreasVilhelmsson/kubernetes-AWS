@@ -59,12 +59,12 @@ variable "node_instance_type" {
 
 variable "node_min" {
   type    = number
-  default = 1
+  default = 2
 }
 
 variable "node_max" {
   type    = number
-  default = 1
+  default = 2
 }
 
 variable "use_spot" {
