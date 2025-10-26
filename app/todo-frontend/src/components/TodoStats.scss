@@ -1,0 +1,13 @@
+@use '../styles/variables' as *;
+
+.todo-stats {
+  display: flex;
+  justify-content: space-around;
+  padding: $spacing-md;
+  background: $bg-light;
+  border-radius: $radius-md;
+  margin-bottom: $spacing-lg;
+  font-size: 0.9rem;
+  color: $text-light;
+  font-weight: 500;
+}

@@ -1,0 +1,27 @@
+@use '../styles/variables' as *;
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  &__empty {
+    text-align: center;
+    padding: $spacing-2xl $spacing-md;
+    color: $text-muted;
+    font-size: 1.1rem;
+  }
+
+  &__divider {
+    margin: $spacing-lg 0 $spacing-md;
+    padding: $spacing-xs;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-top: 2px solid $border;
+    border-bottom: 2px solid $border;
+  }
+}

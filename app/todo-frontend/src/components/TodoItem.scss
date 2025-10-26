@@ -1,0 +1,58 @@
+@use '../styles/variables' as *;
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  background: $bg-light;
+  border-radius: $radius-md;
+  transition: all $transition-normal;
+
+  &:hover {
+    background: $bg-lighter;
+    transform: translateX(4px);
+  }
+
+  &--completed {
+    opacity: 0.6;
+
+    .todo-item__title {
+      text-decoration: line-through;
+      color: $text-muted;
+    }
+  }
+
+  &__checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: $primary;
+  }
+
+  &__title {
+    flex: 1;
+    font-size: 1rem;
+    color: $text-dark;
+  }
+
+  &__delete {
+    width: 32px;
+    height: 32px;
+    font-size: 1.5rem;
+    color: $danger;
+    background: transparent;
+    border: none;
+    border-radius: $radius-sm;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all $transition-fast;
+
+    &:hover {
+      background: $danger;
+      color: $white;
+    }
+  }
+}
