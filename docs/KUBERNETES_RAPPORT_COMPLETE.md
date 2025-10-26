@@ -67,8 +67,8 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 
 ### 1.1 Control Plane Komponenter
 
-**[BILD: AWS EKS Console - Cluster Overview]**
-*Skärmdump från AWS EKS Console som visar klustret "todo-eks" med status, version, endpoint*
+![AWS EKS-klusteröversikt för todo-eks](images/Cluster-overview.jpg)
+*AWS EKS Console visar klustret `todo-eks` med status, version och endpoint.*
 
 #### API Server (kube-apiserver)
 - **Funktion:** Klustrets frontend och centrala kommunikationspunkt
@@ -112,8 +112,8 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 
 ### 1.2 Worker Node Komponenter
 
-**[BILD: AWS EC2 Console - EKS Worker Nodes]**
-*Skärmdump från EC2 Console som visar de 2 t3.small worker nodes med tags*
+![AWS EC2 worker nodes för EKS-klustret](images/Cluster-nodes.jpg)
+*EC2 Console visar de två t3.small worker nodes och tillhörande taggar.*
 
 #### kubelet
 - **Funktion:** Agent som körs på varje node
@@ -140,9 +140,6 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 - **I praktiken:** Docker, containerd, eller CRI-O som faktiskt kör applikationerna
 
 ### 1.3 Add-ons i vårt kluster
-
-**[BILD: AWS EKS Console - Add-ons tab]**
-*Skärmdump som visar installerade add-ons: aws-ebs-csi-driver*
 
 #### CoreDNS
 - **Funktion:** DNS-server för klustret
@@ -425,9 +422,6 @@ spec:
 - `/*` → frontend Service
 - Exponeras via AWS NLB
 
-**[BILD: Cloudcraft Architecture Diagram]**
-*Diagram som visar: Internet → NLB → Ingress Controller → Services → Pods*
-
 **Relation:**
 - Kräver Ingress Controller (NGINX i vårt fall)
 - Routar till Services (inte direkt till Pods)
@@ -524,8 +518,11 @@ spec:
 - EBS CSI Driver provisonerar EBS volume dynamiskt
 - MongoDB data persisteras på EBS gp3 volume
 
-**[BILD: AWS EBS Console - Volumes]**
-*Skärmdump som visar EBS volume på 5GB kopplat till MongoDB pod*
+![EBS-volym kopplad till MongoDB StatefulSet](images/EBS-volumes.jpg)
+*AWS EBS Console visar 5 GiB gp3-volym som används av MongoDB.*
+
+![Detaljer för EBS-volymen inklusive kopplad pod](images/EBS-Volumes-details.jpg)
+*Detaljvy med attachment till worker node och taggar från StatefulSet.*
 
 **Relation:**
 - StorageClass → PVC → PV → Pod
@@ -662,12 +659,6 @@ kubectl get nodes
 kubectl apply -f k8s/
 ```
 
-**[BILD: AWS EKS Console - Cluster Details]**
-*Skärmdump som visar kluster-detaljer: version, endpoint, networking, logging*
-
-**[BILD: AWS EKS Console - Compute tab]**
-*Skärmdump som visar node group med 2 t3.small nodes*
-
 ---
 
 ### 3.3 kubectl - Kommandoradsverktyg
@@ -755,26 +746,11 @@ wget -O- http://todo-backend/api/health
 nslookup mongodb
 ```
 
-**[BILD: kubectl get pods output]**
-*Terminal screenshot som visar alla pods i Running state*
-
----
-
 ## 4. Todo Application - Design och Deployment
 
 ### 4.1 Applikationsdesign
 
 #### Arkitektur Overview
-
-**[BILD: Cloudcraft Architecture Diagram - Full Stack]**
-*Diagram ska visa:*
-- *VPC med 2 public subnets i olika AZs*
-- *Internet Gateway*
-- *2x EC2 instances (EKS worker nodes)*
-- *Network Load Balancer*
-- *3x DynamoDB-ikoner för pods (MongoDB, Backend, Frontend)*
-- *EBS volume kopplat till MongoDB*
-- *Pilar som visar trafikflöde: Internet → NLB → Ingress → Services → Pods*
 
 **Komponenter:**
 
@@ -804,6 +780,9 @@ User → Browser → NLB → Ingress Controller → Frontend Service → Fronten
                                                                                     ↓
                                                                               EBS Volume (5Gi)
 ```
+
+![Todo-appen körd via EKS och nådd via NLB](images/todo-app.jpg)
+*Publikt NLB-endpoint presenterar React-frontenden med en aktiv uppgift.*
 
 ---
 
@@ -1177,8 +1156,8 @@ spec:
 - Timeout annotations för långsamma API calls
 - Ingen rewrite - paths skickas som de är till backend
 
-**[BILD: AWS EC2 Console - Load Balancers]**
-*Skärmdump som visar Network Load Balancer skapad av Ingress Controller*
+![AWS console med Network Load Balancer för todo-eks](images/load-balancer.jpg)
+*AWS Load Balancer Console visar NLB som skapats av Ingress Controller.*
 
 ---
 
@@ -1209,6 +1188,9 @@ module "vpc" {
 }
 ```
 
+![Publika subnät taggade för EKS Load Balancers](images/subnets.jpg)
+*AWS VPC Console visar public subnets med nödvändiga Kubernetes-taggar.*
+
 **Security Groups:**
 
 1. **Cluster Security Group** (skapad av EKS)
@@ -1224,8 +1206,8 @@ module "vpc" {
      --source-group sg-088f8e66e28c67fb2
    ```
 
-**[BILD: AWS VPC Console - Security Groups]**
-*Skärmdump som visar node security group med inbound rules*
+![Security group-regler för EKS worker nodes](images/Securtity-groups.jpg)
+*VPC Console visar node security group med inbound-regler för pod-till-pod-trafik.*
 
 **Network Policies (ej implementerat):**
 För production skulle vi lägga till NetworkPolicies:
@@ -1298,8 +1280,8 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 - EBS CSI Driver behöver permissions för CreateVolume, AttachVolume, etc.
 - Ingen access keys i pods - säkrare än node IAM role
 
-**[BILD: AWS IAM Console - Roles]**
-*Skärmdump som visar EBS CSI IAM role med trust policy och permissions*
+![IAM-roll för EBS CSI Driver med trust policy](images/IAM-roles.jpg)
+*AWS IAM Console visar rollen som används av EBS CSI Driver via IRSA.*
 
 **Kubernetes RBAC (ej implementerat):**
 För production skulle vi skapa ServiceAccounts med begränsade permissions:
@@ -1584,9 +1566,6 @@ jobs:
           build-args: VITE_API_BASE_URL=/api
 ```
 
-**[BILD: GitHub Actions - Workflow runs]**
-*Skärmdump från GitHub Actions tab som visar successful builds*
-
 **Fördelar med denna pipeline:**
 - Automatisk build vid code push
 - Multi-arch images (amd64 + arm64)
@@ -1642,9 +1621,6 @@ vpc_id = "vpc-0cb677ba4aa5252a0"
 public_subnets = ["subnet-03ecdfca3144bf3df", "subnet-013ee60c8f7d0f689"]
 ```
 
-**[BILD: Terraform apply output]**
-*Terminal screenshot som visar successful terraform apply*
-
 **Steg 2: Konfigurera kubectl**
 ```bash
 aws eks update-kubeconfig --region eu-west-1 --name todo-eks
@@ -1695,10 +1671,8 @@ kubectl get svc -n ingress-nginx ingress-nginx-controller \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 ```
 
-**[BILD: kubectl get pods output]**
-*Terminal screenshot som visar alla pods i Running state*
-
----
+![Detaljerad vy av ingress-NLB med lyssnare och målgrupper](images/load-balancer-detail.jpg)
+*AWS Load Balancer Console visar listeners och target groups för ingresskontrollern.*
 
 #### 4.6.3 Uppdatera Applikation
 
@@ -1724,9 +1698,6 @@ git push origin main
 - Workflow triggas av push
 - Bygger ny image: `ghcr.io/andreasvilhelmsson/todo-frontend-v2:0.1.42`
 - Pushar till GitHub Container Registry
-
-**[BILD: GitHub Container Registry]**
-*Skärmdump från GitHub Packages som visar image versions*
 
 **Steg 4: Uppdatera Kubernetes**
 
@@ -1797,9 +1768,6 @@ kubectl top nodes
 kubectl top pods -n eks-mongo-todo
 ```
 
-**[BILD: kubectl top output]**
-*Terminal screenshot som visar CPU/Memory usage för pods*
-
 **Production Monitoring (ej implementerat):**
 För production skulle vi installera:
 - Prometheus + Grafana för metrics
@@ -1820,9 +1788,6 @@ För production skulle vi installera:
 | Network Load Balancer | 1x NLB | ~$16 |
 | Data Transfer | Minimal (dev) | ~$1 |
 | **Total** | | **~$100** |
-
-**[BILD: AWS Cost Explorer]**
-*Skärmdump från AWS Cost Explorer som visar kostnad per service*
 
 **Kostnadsoptimering:**
 - Spot instances istället för On-Demand (70% billigare)
@@ -2139,43 +2104,32 @@ https://github.com/andreasvilhelmsson/eks-mongo-todo
 ## Arkitekturdiagram (Mermaid)
 
 ```mermaid
-graph LR
-  User((User)) -->|HTTP| ALB
-  ALB --> FE
-  FE -->|/api| BE
-  BE --> DB
-
-  subgraph "AWS VPC (eu-west-1)"
-    subgraph "Public Subnets"
-      ALB[ALB/NLB (optional)]
+flowchart LR
+  subgraph AWS_VPC["AWS VPC (eu-west-1)"]
+    subgraph Public_Subnets["Public subnets"]
+      alb[ALB/NLB (optional)]
     end
-    subgraph "Private Subnets"
-      EKS[(EKS Cluster)]
-      subgraph "Namespace: eks-mongo-todo"
-        FE[Frontend Deployment]
-        BE[Backend Deployment]
-        DB[(MongoDB StatefulSet + PVC/EBS)]
+    subgraph Private_Subnets["Private subnets"]
+      eks[(EKS Cluster)]
+      subgraph NamespaceEks["Namespace: eks-mongo-todo"]
+        fe[Frontend Deployment]
+        be[Backend Deployment]
+        db[(MongoDB StatefulSet + PVC/EBS)]
       end
-      EKS --> FE
-      EKS --> BE
-      EKS --> DB
+      eks --> fe
+      eks --> be
+      eks --> db
     end
   end
 
-  GH[GitHub Actions] --> GHCR[(GitHub Container Registry)]
-  GHCR --> EKS
+  User((User)) -->|HTTP| alb
+  alb --> fe
+  fe -->|/api| be
+  be --> db
+
+  gh[GitHub Actions] --> ghcr[(GitHub Container Registry)]
+  ghcr --> eks
 ```
-
-
-## Skärmdumpar
-
-![Cluster nodes](images/Cluster-nodes.jpg)
-![Cluster overview](images/Cluster-overview.jpg)
-![EBS volume details](images/EBS-Volumes-details.jpg)
-![EBS volumes](images/EBS-volumes.jpg)
-![IAM roles](images/IAM-roles.jpg)
-![Load balancer detail](images/load-balancer-detail.jpg)
-
 
 ## Lärdomar och fallgropar
 
