@@ -854,7 +854,7 @@ User → Browser → NLB → Ingress Controller → Frontend Service → Fronten
 ```
 
 ![Todo-appen körd via EKS och nådd via NLB](images/todo-app.jpg)
-_Publikt NLB-endpoint presenterar React-frontenden med en aktiv uppgift._
+_Publikt NLB-endpoint presenterar React-frontenden med två aktiva uppgifter._
 
 ---
 
@@ -1017,6 +1017,8 @@ volumeBindingMode: WaitForFirstConsumer
 
 **Förklaring:**
 
+- Storage class fungerar som en “mall” för dynamisk lagring.
+  beskriver hur och vilken typ av lagring som ska skapas automatiskt när en Pod begär en PersistentVolumeClaim.
 - `provisioner: ebs.csi.aws.com` - Använder AWS EBS CSI Driver
 - `type: gp3` - Senaste generation EBS (billigare än gp2)
 - `encrypted: "true"` - Krypterar data at rest
@@ -1190,8 +1192,8 @@ spec:
 
 **Förklaring:**
 
-- NGINX serves static React build på port 80
-- Ingen environment variables behövs (API URL är `/api` via Ingress)
+- NGINX serverar den byggda React-applikationen som statiska filer via port 80
+- Inga environment-variabler behövs för API URL, eftersom frontend kommunicerar med backend via /api som hanteras av Ingress.
 
 ---
 
@@ -1248,7 +1250,11 @@ _AWS Load Balancer Console visar NLB som skapats av Ingress Controller._
 ### 4.4 Säkerhetsdesign
 
 ![Säkerhetsdiagram över komponenternas åtkomstkontroller](images/Securitydiagram.jpg)
-_Sammanfattar hur RBAC, Security Groups och IAM/IRSA skyddar trafik mellan komponenterna._
+_Systemets säkerhet bygger på flera lager av åtkomstkontroller:
+• IAM + IRSA används för att ge specifika Kubernetes-poddar åtkomst till AWS-resurser (t.ex. EBS, S3) utan att ge hela noder fulla rättigheter. Detta följer principen “least privilege”.
+• RBAC (Role-Based Access Control) styr vilka användare och tjänster som får göra förändringar i Kubernetes-klustret, t.ex. skapa pods, secrets eller uppdatera deployments.
+• Security Groups fungerar som virtuella brandväggar runt noder och lastbalanserare och kontrollerar vilken trafik som är tillåten in och ut ur AWS-infrastrukturen.
+• Tillsammans begränsar dessa mekanismer både nätverkstrafik och resursåtkomst, vilket minskar risken för obehörig åtkomst eller lateral movement inom systemet._
 
 #### 4.4.1 Nätverkssäkerhet
 
@@ -1299,7 +1305,7 @@ _AWS VPC Console visar public subnets med nödvändiga Kubernetes-taggar._
 _VPC Console visar node security group med inbound-regler för pod-till-pod-trafik._
 
 **Network Policies (ej implementerat):**
-För production skulle vi lägga till NetworkPolicies:
+NetworkPolicies har inte implementerats i detta projekt, men i en produktionsmiljö bör de användas för att begränsa nätverkstrafiken mellan pods. Med NetworkPolicies kan man definiera vilka pods eller namespaces som får kommunicera med varandra och vilken trafik (ingress/egress) som är tillåten. Detta minskar risken för lateral rörelse vid ett intrång och följer principen zero trust networking.
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -2141,6 +2147,7 @@ flowchart LR
 ## Lärdomar och fallgropar
 
 ### 5.5 VPC Configuration Typos
+
 **Problem:** Terraform apply misslyckades med "unknown variable" errors.
 
 **Orsak:** Typos i vpc.tf - `vpc_deor` istället för `vpc_cidr`, `gats` istället för `tags`.
@@ -2148,6 +2155,7 @@ flowchart LR
 **Lösning:** Korrigerade variabelnamn och tog bort `enable_dns64` (ej supporterat i VPC module v5).
 
 **Lärdomar:**
+
 - Använd IDE med syntax highlighting
 - Kör `terraform validate` innan apply
 - Läs module documentation noggrant
@@ -2155,15 +2163,18 @@ flowchart LR
 ---
 
 ### 5.6 MongoDB Multi-Document YAML
+
 **Problem:** Terraform kunde inte parsa MongoDB YAML med `---` separator.
 
 **Orsak:** `yamldecode()` function stödjer inte multi-document YAML.
 
 **Lösning:** Splittade i separata filer:
+
 - `k8s/mongo/service.yaml`
 - `k8s/mongo/statefulset.yaml`
 
 **Lärdomar:**
+
 - Terraform yamldecode kräver single-document YAML
 - Separata filer ger bättre struktur ändå
 - Använd `kubectl apply -f directory/` för multi-file deploys
@@ -2171,20 +2182,23 @@ flowchart LR
 ---
 
 ### 5.7 SASS Import Syntax Deprecation
+
 **Problem:** Frontend build misslyckades med "@import is deprecated" warnings.
 
 **Orsak:** Modern SASS kräver `@use` istället för `@import`.
 
 **Lösning:** Uppdaterade alla SASS-filer:
+
 ```scss
 // Gammalt
-@import 'variables';
+@import "variables";
 
 // Nytt
-@use 'variables' as *;
+@use "variables" as *;
 ```
 
 **Lärdomar:**
+
 - Håll dig uppdaterad med framework deprecations
 - `@use` ger bättre namespace-hantering
 - Testa builds lokalt innan push
@@ -2192,20 +2206,23 @@ flowchart LR
 ---
 
 ### 5.8 TypeScript verbatimModuleSyntax
+
 **Problem:** TypeScript compilation errors: "'type' modifier cannot be used on a named export".
 
 **Orsak:** `verbatimModuleSyntax: true` kräver explicit `import type` syntax.
 
 **Lösning:**
+
 ```typescript
 // Gammalt
-import { Todo } from './types';
+import { Todo } from "./types";
 
 // Nytt
-import type { Todo } from './types';
+import type { Todo } from "./types";
 ```
 
 **Lärdomar:**
+
 - TypeScript 5.0+ har striktare type import rules
 - `verbatimModuleSyntax` förbättrar tree-shaking
 - Använd ESLint rule för att enforcea korrekt syntax
@@ -2213,11 +2230,13 @@ import type { Todo } from './types';
 ---
 
 ### 5.9 Helm Provider Version Conflicts
+
 **Problem:** Terraform kunde inte initiera Helm provider - syntax errors.
 
 **Orsak:** Blandade Helm provider v2 och v3 syntax.
 
 **Lösning:** Använde tom Helm provider block som ärver från Kubernetes provider:
+
 ```hcl
 provider "helm" {
   # Inherits from kubernetes provider
@@ -2225,6 +2244,7 @@ provider "helm" {
 ```
 
 **Lärdomar:**
+
 - Helm provider v2.12+ kan ärva kubernetes config
 - Undvik duplicerad konfiguration
 - Testa provider init separat: `terraform init -upgrade`
@@ -2232,11 +2252,13 @@ provider "helm" {
 ---
 
 ### 5.10 GitHub Actions Multi-Arch Builds
+
 **Problem:** Images byggda på GitHub Actions (AMD64) fungerade inte lokalt (ARM64 Mac).
 
 **Orsak:** Single-arch images - `exec format error` vid lokal test.
 
 **Lösning:** Lade till multi-arch build i GitHub Actions:
+
 ```yaml
 - uses: docker/build-push-action@v6
   with:
@@ -2244,6 +2266,7 @@ provider "helm" {
 ```
 
 **Lärdomar:**
+
 - Bygg alltid multi-arch för portabilitet
 - Använd `docker buildx` för cross-platform builds
 - Testa images på olika arkitekturer
@@ -2251,16 +2274,19 @@ provider "helm" {
 ---
 
 ### 5.11 Terraform Provider Version Matrix
+
 **Problem:** `terraform init` misslyckades med "no available releases match the given constraint".
 
 **Orsak:** EKS module v20 kräver AWS provider v6, men VPC module v6 också kräver v6 - circular dependency.
 
 **Lösning:** Downgradade till kompatibla versioner:
+
 - EKS module: v19.0
 - VPC module: v5.0
 - AWS provider: ~> 5.0
 
 **Lärdomar:**
+
 - Kontrollera module compatibility matrix
 - Använd `~>` för minor version flexibility
 - Testa `terraform init` efter version changes
@@ -2268,6 +2294,7 @@ provider "helm" {
 ---
 
 ### 5.12 GHCR Package Permissions
+
 **Problem:** EKS kunde inte pulla images från GitHub Container Registry - `ImagePullBackOff`.
 
 **Orsak:** Packages var private by default.
@@ -2275,12 +2302,14 @@ provider "helm" {
 **Lösning:** Ändrade package visibility till Public i GitHub settings.
 
 **Alternativ lösning för private packages:**
+
 ```yaml
 imagePullSecrets:
-- name: ghcr-secret
+  - name: ghcr-secret
 ```
 
 **Lärdomar:**
+
 - GHCR packages är private by default
 - Public packages kräver ingen authentication
 - För production: använd imagePullSecrets
@@ -2288,6 +2317,7 @@ imagePullSecrets:
 ---
 
 ### 5.13 CoreDNS Addon Degraded State
+
 **Problem:** CoreDNS addon fastnade i DEGRADED state efter EKS creation.
 
 **Orsak:** Addons behöver tid att starta, särskilt på spot instances.
@@ -2295,6 +2325,7 @@ imagePullSecrets:
 **Lösning:** Ökade Terraform timeouts och väntade 5-10 minuter.
 
 **Lärdomar:**
+
 - EKS addons kan ta tid att bli Active
 - Spot instances kan fördröja startup
 - Använd `kubectl get pods -n kube-system` för att verifiera
@@ -2304,27 +2335,32 @@ imagePullSecrets:
 ### Sammanfattning av Lärdomar
 
 **Planering:**
+
 - Testa lokalt innan deploy till cloud
 - Använd multi-arch builds från början
 - Dokumentera alla manuella steg
 
 **Terraform:**
+
 - Validera syntax: `terraform validate`
 - Kontrollera module compatibility
 - Använd consistent versioning (~> 5.0)
 
 **Kubernetes:**
+
 - Planera för rolling update overhead (2x pods)
 - Minst 2 nodes för multi-node testing
 - Explicit security group rules för inter-node traffic
 
 **Debugging:**
+
 - `kubectl describe pod` för pod issues
 - `kubectl logs` för application errors
 - `kubectl get events` för cluster events
 - AWS Console för infrastructure issues
 
 **Kostnad:**
+
 - Använd spot instances (70% billigare)
 - Minimal node count (2 för HA)
 - Destroy när inte i bruk
