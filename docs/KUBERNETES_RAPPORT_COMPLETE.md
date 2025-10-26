@@ -7,12 +7,15 @@
 ---
 
 ## Sammanfattning
-Den här rapporten beskriver ett komplett, återupprepningsbart Kubernetes-flöde på AWS EKS för en Todo-applikation bestående av **React (frontend)**, **.NET 9 (backend)** och **MongoDB**. Klustret och nätverk skapas med **Terraform (IaC)**, containrar byggs och publiceras med **GitHub Actions** till **GitHub Container Registry (GHCR)**, och deployment till Kubernetes sker med manifest/Helm (med ett dedikerat **namespace** och konsekventa **tags** på resurserna). Fokus har varit **låg kostnad (student-lab)**, möjlighet att **riva upp och ner** utan manuell påverkan, samt **portabilitet** mellan ARM64 (lokal Mac) och AMD64 (EKS noder) genom multi-arch images.
+
+Den här rapporten beskriver ett komplett, återupprepningsbart Kubernetes-flöde på AWS EKS för en Todo-applikation bestående av **React (frontend)**, **.NET 9 (backend)** och **MongoDB**. Klustret och nätverk skapas med **Terraform (IaC)**, containrar byggs och publiceras med **GitHub Actions** till **GitHub Container Registry (GHCR)**, och deployment till Kubernetes sker med manifest/Helm (med ett dedikerat **namespace** och konsekventa **tags** på resurserna). Fokus har varit **låg kostnad student rapport**, möjlighet att **riva upp och ner** utan manuell påverkan, samt **portabilitet** mellan ARM64 (lokal Mac) och AMD64 (EKS noder) genom multi-arch images. projektet
+har varit utmanande och suttit i flera dagar för att lösa problem. Detta är mitt tredje projekt som jag har gjort med kubernetes. Har varit extra stora utmaningar för att jag sitter på en mac dator med Arm processor. Första gången
+jag satt upp allt så gick hela flödet igenom. Beslutade mig dock för att riva det då ARM64 och AMD64 inte kunde köra ihop.
 
 ---
 
-
 ## Innehåll
+
 1. [Fundament i ett Kubernetes-kluster](#fundament-i-ett-kubernetes-kluster)
 2. [Vanliga Kubernetes-objekt (kind:)](#vanliga-kubernetes-objekt-kind)
 3. [Administration lokalt och i molnet](#administration-lokalt-och-i-molnet)
@@ -30,10 +33,10 @@ Den här rapporten beskriver ett komplett, återupprepningsbart Kubernetes-flöd
 
 ---
 
-
 ## Fundament i ett Kubernetes-kluster
 
 # Kubernetes Deployment - Todo Application
+
 ## Inlämningsuppgift Cloud Services
 
 ---
@@ -50,6 +53,7 @@ Den här rapporten beskriver ett komplett, återupprepningsbart Kubernetes-flöd
 Detta projekt demonstrerar deployment av en fullstack todo-applikation till AWS EKS (Elastic Kubernetes Service). Applikationen består av en React/TypeScript frontend, .NET backend API, och MongoDB databas. Projektet omfattar infrastruktur som kod med Terraform, CI/CD med GitHub Actions, och Kubernetes-manifest för orchestrering.
 
 **Teknologier:**
+
 - Kubernetes (AWS EKS)
 - Docker & Container Registry (GitHub Container Registry)
 - Terraform (Infrastructure as Code)
@@ -68,17 +72,19 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 ### 1.1 Control Plane Komponenter
 
 ![AWS EKS-klusteröversikt för todo-eks](images/Cluster-overview.jpg)
-*AWS EKS Console visar klustret `todo-eks` med status, version och endpoint.*
+_AWS EKS Console visar klustret `todo-eks` med status, version och endpoint._
 
 #### API Server (kube-apiserver)
+
 - **Funktion:** Klustrets frontend och centrala kommunikationspunkt
-- **Ansvar:** 
+- **Ansvar:**
   - Exponerar Kubernetes API
   - Validerar och processar REST-requests
   - Uppdaterar etcd med kluster-state
 - **I praktiken:** Alla kubectl-kommandon kommunicerar med API Server
 
 #### etcd
+
 - **Funktion:** Distribuerad key-value databas
 - **Ansvar:**
   - Lagrar all kluster-konfiguration och state
@@ -86,6 +92,7 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 - **I praktiken:** Innehåller alla Deployments, Services, ConfigMaps, etc.
 
 #### Scheduler (kube-scheduler)
+
 - **Funktion:** Beslutar vilken node en pod ska köras på
 - **Ansvar:**
   - Analyserar resource requirements (CPU, minne)
@@ -94,6 +101,7 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 - **I praktiken:** När du skapar en Deployment, väljer Scheduler vilken node som får köra poden
 
 #### Controller Manager (kube-controller-manager)
+
 - **Funktion:** Kör olika controllers som övervakar kluster-state
 - **Ansvar:**
   - Node Controller: Övervakar node-hälsa
@@ -103,6 +111,7 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 - **I praktiken:** Om en pod kraschar, upptäcker Controller Manager detta och skapar en ny
 
 #### Cloud Controller Manager
+
 - **Funktion:** Integrerar med cloud provider (AWS i vårt fall)
 - **Ansvar:**
   - Node Controller: Kontrollerar om nodes har tagits bort i cloud
@@ -113,9 +122,10 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 ### 1.2 Worker Node Komponenter
 
 ![AWS EC2 worker nodes för EKS-klustret](images/Cluster-nodes.jpg)
-*EC2 Console visar de två t3.small worker nodes och tillhörande taggar.*
+_EC2 Console visar de två t3.small worker nodes och tillhörande taggar._
 
 #### kubelet
+
 - **Funktion:** Agent som körs på varje node
 - **Ansvar:**
   - Tar emot PodSpecs från API Server
@@ -124,6 +134,7 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 - **I praktiken:** Startar och övervakar Docker containers på noden
 
 #### kube-proxy
+
 - **Funktion:** Nätverksproxy på varje node
 - **Ansvar:**
   - Implementerar Kubernetes Service-koncept
@@ -132,6 +143,7 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 - **I praktiken:** När du anropar en Service, routar kube-proxy trafiken till rätt pod
 
 #### Container Runtime
+
 - **Funktion:** Kör containers
 - **Ansvar:**
   - Pullar container images
@@ -142,35 +154,44 @@ Ett Kubernetes-kluster består av två huvudsakliga delar: **Control Plane** och
 ### 1.3 Add-ons i vårt kluster
 
 #### CoreDNS
+
 - **Funktion:** DNS-server för klustret
 - **Ansvar:** Service discovery - översätter service-namn till IP-adresser
 - **I praktiken:** Backend kan nå MongoDB via `mongodb:27017` istället för IP
 
 #### AWS EBS CSI Driver
+
 - **Funktion:** Container Storage Interface för AWS EBS
-- **Ansvar:** 
+- **Ansvar:**
   - Dynamisk provisioning av EBS volumes
   - Attach/detach volumes till nodes
   - Snapshot och restore
+  - EBS Amazons molnbaserade hårddiskar – används för att lagra data på ett säkert
 - **I praktiken:** MongoDB använder EBS CSI för persistent storage (5Gi gp3 volume)
 
 #### NGINX Ingress Controller
+
 - **Funktion:** Ingress controller för HTTP/HTTPS routing
 - **Ansvar:**
-  - Exponerar Services externt via Load Balancer
-  - HTTP routing baserat på host/path
-  - SSL/TLS termination
+- En Ingress Controller är komponenten i Kubernetes som tar emot trafik utifrån och skickar den vidare till rätt Service/Pod i ditt kluster
+- Exponerar Services externt via Load Balancer
+- HTTP routing baserat på host/path
+- SSL/TLS termination
 - **I praktiken:** Routar `/api/*` till backend och `/` till frontend
 
 ---
 
 ## 2. Kubernetes Objekt (kind:) - Typer och Användning
 
+I Kubernetes är kind ett nyckelord i YAML-filer som talar om vilken typ av resurs (objekt) du vill skapa i klustretI
+det kan till exempel vara en Pod, Deployment, Service, ConfigMap, Ingress, Job.
+
 ### 2.1 Namespace
 
 **Funktion:** Logisk isolering av resurser inom klustret
 
 **Användning:**
+
 ```yaml
 apiVersion: v1
 kind: Namespace
@@ -182,6 +203,7 @@ metadata:
 ```
 
 **I vårt projekt:**
+
 - Alla applikationsresurser ligger i namespace `eks-mongo-todo`
 - Separerar vår app från system-pods (kube-system, ingress-nginx)
 - Möjliggör resource quotas och RBAC per namespace
@@ -198,6 +220,7 @@ metadata:
 Pods skapas vanligtvis inte direkt, utan via Deployments eller StatefulSets.
 
 **I vårt projekt:**
+
 ```bash
 kubectl get pods -n eks-mongo-todo
 NAME                             READY   STATUS
@@ -206,7 +229,8 @@ todo-backend-55d96ff964-2wj6k    1/1     Running
 todo-frontend-5f5b6987d7-rwf5r   1/1     Running
 ```
 
-**Relation:** 
+**Relation:**
+
 - Skapas av Deployment/StatefulSet
 - Exponeras av Service
 - Scheduleras på Node av Scheduler
@@ -218,6 +242,7 @@ todo-frontend-5f5b6987d7-rwf5r   1/1     Running
 **Funktion:** Deklarativ hantering av Pods och ReplicaSets - för stateless applikationer
 
 **Användning:**
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -235,26 +260,29 @@ spec:
         app: todo-backend
     spec:
       containers:
-      - name: api
-        image: ghcr.io/andreasvilhelmsson/todo-backend-v2:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: MONGO_URI
-          value: mongodb://root:changeme@mongodb:27017/?authSource=admin
+        - name: api
+          image: ghcr.io/andreasvilhelmsson/todo-backend-v2:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MONGO_URI
+              value: mongodb://root:changeme@mongodb:27017/?authSource=admin
 ```
 
 **Fördelar:**
+
 - Rolling updates utan downtime
 - Rollback till tidigare version
 - Self-healing - återskapar pods vid failure
 - Scaling - enkelt öka/minska replicas
 
 **I vårt projekt:**
+
 - Backend Deployment: 1 replica av .NET API
 - Frontend Deployment: 1 replica av React app
 
 **Relation:**
+
 - Skapar och hanterar ReplicaSet
 - ReplicaSet skapar och hanterar Pods
 - Service pekar på Pods via labels
@@ -266,6 +294,7 @@ spec:
 **Funktion:** Hantering av stateful applikationer med persistent identity och storage
 
 **Användning:**
+
 ```yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -284,36 +313,39 @@ spec:
         app: mongodb
     spec:
       containers:
-      - name: mongo
-        image: mongo:7
-        ports:
-        - containerPort: 27017
-        volumeMounts:
-        - name: data
-          mountPath: /data/db
+        - name: mongo
+          image: mongo:7
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
   volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      storageClassName: ebs-gp3
-      resources:
-        requests:
-          storage: 5Gi
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ebs-gp3
+        resources:
+          requests:
+            storage: 5Gi
 ```
 
 **Skillnad mot Deployment:**
+
 - Stable network identity: `mongodb-0`, `mongodb-1`, etc.
 - Persistent storage per pod
 - Ordered deployment och scaling
 - Ordered rolling updates
 
 **I vårt projekt:**
+
 - MongoDB StatefulSet med 1 replica
 - Persistent volume på 5Gi EBS gp3
 - Data överlever pod restarts
 
 **Relation:**
+
 - Skapar PersistentVolumeClaim per replica
 - Service (headless) ger stable DNS namn
 - Pods får ordnade namn: `<statefulset-name>-<ordinal>`
@@ -327,6 +359,7 @@ spec:
 **Typer:**
 
 #### ClusterIP (default)
+
 Intern IP - endast tillgänglig inom klustret
 
 ```yaml
@@ -339,16 +372,18 @@ spec:
   selector:
     app: todo-backend
   ports:
-  - port: 80
-    targetPort: 8080
+    - port: 80
+      targetPort: 8080
 ```
 
 **I vårt projekt:**
+
 - Backend Service: Exponerar backend pods på port 80
 - Frontend Service: Exponerar frontend pods på port 80
 - MongoDB Service: Headless service för StatefulSet
 
 #### LoadBalancer
+
 Exponerar Service externt via cloud load balancer
 
 ```yaml
@@ -362,15 +397,17 @@ spec:
   selector:
     app: ingress-nginx
   ports:
-  - port: 80
-    targetPort: 80
+    - port: 80
+      targetPort: 80
 ```
 
 **I vårt projekt:**
+
 - NGINX Ingress Controller använder LoadBalancer
 - Skapar AWS Network Load Balancer automatiskt
 
 **Relation:**
+
 - Selector matchar Pod labels
 - Endpoints-objekt skapas automatiskt med Pod IPs
 - Ingress routar trafik till Services
@@ -382,6 +419,7 @@ spec:
 **Funktion:** HTTP/HTTPS routing till Services baserat på host och path
 
 **Användning:**
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -393,50 +431,53 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - http:
-      paths:
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: todo-backend
-            port:
-              number: 80
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: todo-frontend
-            port:
-              number: 80
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-backend
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-frontend
+                port:
+                  number: 80
 ```
 
 **Fördelar:**
+
 - En Load Balancer för flera Services
 - Path-based routing
 - SSL/TLS termination
 - URL rewriting
 
 **I vårt projekt:**
+
 - `/api/*` → backend Service
 - `/*` → frontend Service
 - Exponeras via AWS NLB
 
 **Relation:**
+
 - Kräver Ingress Controller (NGINX i vårt fall)
 - Routar till Services (inte direkt till Pods)
 - Ingress Controller skapar LoadBalancer Service
-
-
 
 ## Vanliga Kubernetes-objekt (kind:)
 
 ## 2.7 ConfigMap och Secret
 
 ### ConfigMap
+
 **Funktion:** Lagra konfigurationsdata som key-value pairs
 
 **Användning:**
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -448,13 +489,16 @@ data:
 ```
 
 **I vårt projekt:**
+
 - Används inte explicit, men environment variables i Deployments fyller samma syfte
 - Bättre practice: Flytta MONGO_URI till ConfigMap
 
 ### Secret
+
 **Funktion:** Lagra känslig data (lösenord, tokens, nycklar)
 
 **Användning:**
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -467,10 +511,12 @@ stringData:
 ```
 
 **I vårt projekt:**
+
 - MongoDB credentials hårdkodade i Deployment (ej production-ready)
 - Bättre practice: Använd Secret och referera via secretKeyRef
 
 **Relation:**
+
 - Monteras som volumes eller environment variables i Pods
 - Base64-encoded (inte krypterad!)
 - För verklig säkerhet: AWS Secrets Manager eller HashiCorp Vault
@@ -482,6 +528,7 @@ stringData:
 **Funktion:** Abstraktion för persistent storage
 
 #### StorageClass
+
 Definierar typer av storage som kan provisoneras dynamiskt
 
 ```yaml
@@ -497,6 +544,7 @@ volumeBindingMode: WaitForFirstConsumer
 ```
 
 #### PersistentVolumeClaim
+
 Request för storage från en Pod
 
 ```yaml
@@ -506,7 +554,7 @@ metadata:
   name: mongodb-data
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   storageClassName: ebs-gp3
   resources:
     requests:
@@ -514,17 +562,19 @@ spec:
 ```
 
 **I vårt projekt:**
+
 - StatefulSet skapar automatiskt PVC via volumeClaimTemplates
 - EBS CSI Driver provisonerar EBS volume dynamiskt
 - MongoDB data persisteras på EBS gp3 volume
 
 ![EBS-volym kopplad till MongoDB StatefulSet](images/EBS-volumes.jpg)
-*AWS EBS Console visar 5 GiB gp3-volym som används av MongoDB.*
+_AWS EBS Console visar 5 GiB gp3-volym som används av MongoDB._
 
 ![Detaljer för EBS-volymen inklusive kopplad pod](images/EBS-Volumes-details.jpg)
-*Detaljvy med attachment till worker node och taggar från StatefulSet.*
+_Detaljvy med attachment till worker node och taggar från StatefulSet._
 
 **Relation:**
+
 - StorageClass → PVC → PV → Pod
 - CSI Driver hanterar lifecycle
 - Volume följer Pod vid reschedule (samma node)
@@ -536,7 +586,9 @@ spec:
 ### 3.1 Lokalt Kluster
 
 #### Minikube
+
 **Användning:**
+
 ```bash
 # Starta lokalt kluster
 minikube start --driver=docker --cpus=2 --memory=4096
@@ -552,17 +604,21 @@ minikube stop
 ```
 
 **Fördelar:**
+
 - Snabb utveckling och testning
 - Ingen kostnad
 - Fungerar på laptop
 
 **Nackdelar:**
+
 - Begränsade resurser
 - Ingen cloud-integration
 - Single-node
 
 #### Kind (Kubernetes in Docker)
+
 **Användning:**
+
 ```bash
 # Skapa kluster
 kind create cluster --name todo-dev
@@ -575,12 +631,15 @@ kind delete cluster --name todo-dev
 ```
 
 **Fördelar:**
+
 - Multi-node kluster lokalt
 - CI/CD testing
 - Snabbare än Minikube
 
 #### Docker Desktop Kubernetes
+
 **Användning:**
+
 - Aktivera i Docker Desktop settings
 - Automatisk kubectl konfiguration
 - Enklast för Mac/Windows användare
@@ -592,6 +651,7 @@ kind delete cluster --name todo-dev
 #### AWS EKS (Elastic Kubernetes Service)
 
 **Fördelar:**
+
 - Managed Control Plane (AWS hanterar master nodes)
 - Integrerat med AWS services (IAM, VPC, EBS, ELB)
 - Auto-scaling och auto-healing
@@ -633,7 +693,7 @@ module "eks" {
     default = {
       instance_types = ["t3.small"]
       capacity_type  = "SPOT"
-      
+
       desired_size = 2
       min_size     = 2
       max_size     = 2
@@ -643,6 +703,7 @@ module "eks" {
 ```
 
 **Deployment workflow:**
+
 ```bash
 # 1. Skapa infrastruktur
 cd infra/terraform
@@ -711,6 +772,7 @@ kubectl config use-context arn:aws:eks:eu-west-1:xxx:cluster/todo-eks
 ### 3.4 Monitoring och Debugging
 
 **Kluster-hälsa:**
+
 ```bash
 # Node status
 kubectl get nodes
@@ -729,6 +791,7 @@ kubectl version
 ```
 
 **Debugging:**
+
 ```bash
 # Varför startar inte pod?
 kubectl describe pod <pod-name> -n eks-mongo-todo
@@ -753,11 +816,12 @@ nslookup mongodb
 #### Arkitektur Overview
 
 ![Översiktsdiagram över hela EKS-miljön](images/infrastructurediagram.jpg)
-*Hög nivå visar trafik från internet via NLB och Ingress till EKS-klustrets frontend, backend och MongoDB.*
+_Hög nivå visar trafik från internet via NLB och Ingress till EKS-klustrets frontend, backend och MongoDB._
 
 **Komponenter:**
 
 1. **Frontend (React + TypeScript + SASS)**
+
    - Single Page Application
    - Axios för API-anrop
    - Komponentbaserad arkitektur
@@ -765,6 +829,7 @@ nslookup mongodb
    - Responsive design
 
 2. **Backend (.NET 9 Web API)**
+
    - RESTful API
    - MongoDB.Driver för databas-access
    - CORS-konfiguration
@@ -775,7 +840,11 @@ nslookup mongodb
    - Persistent storage via EBS
    - StatefulSet för stable identity
 
+![MongoDB-databasen med todo-kollektioner](images/mongodb.jpg)
+_MongoDB Atlas/Compass visar databasens `todos`-samlingar och dokument som lagrar uppgifterna._
+
 **Dataflöde:**
+
 ```
 User → Browser → NLB → Ingress Controller → Frontend Service → Frontend Pod
                                           ↓
@@ -785,13 +854,14 @@ User → Browser → NLB → Ingress Controller → Frontend Service → Fronten
 ```
 
 ![Todo-appen körd via EKS och nådd via NLB](images/todo-app.jpg)
-*Publikt NLB-endpoint presenterar React-frontenden med en aktiv uppgift.*
+_Publikt NLB-endpoint presenterar React-frontenden med en aktiv uppgift._
 
 ---
 
 ### 4.2 Applikationskod
 
 #### Frontend Struktur
+
 ```
 app/todo-frontend/
 ├── src/
@@ -811,17 +881,18 @@ app/todo-frontend/
 ```
 
 **Exempel - TodoService:**
+
 ```typescript
-import axios from 'axios';
+import axios from "axios";
 
 export type Todo = {
   id: string;
   title: string;
   completed: boolean;
   createdAt: string;
-}
+};
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 export const todoService = {
   getAll: async (): Promise<Todo[]> => {
@@ -845,6 +916,7 @@ export const todoService = {
 ```
 
 #### Backend Struktur
+
 ```
 app/todo-backend/
 ├── Program.cs              # Main API file
@@ -853,6 +925,7 @@ app/todo-backend/
 ```
 
 **Exempel - Backend API:**
+
 ```csharp
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -867,7 +940,7 @@ builder.Services.AddCors(options => {
 });
 
 // MongoDB
-var mongoUri = builder.Configuration["MONGO_URI"] 
+var mongoUri = builder.Configuration["MONGO_URI"]
     ?? "mongodb://root:changeme@mongodb:27017/?authSource=admin";
 var mongoClient = new MongoClient(mongoUri);
 var database = mongoClient.GetDatabase("tododb");
@@ -884,7 +957,7 @@ app.MapGet("/api/todos", async (IMongoCollection<TodoItem> collection) => {
     return Results.Ok(todos);
 });
 
-app.MapPost("/api/todos", async (TodoCreateDto dto, 
+app.MapPost("/api/todos", async (TodoCreateDto dto,
     IMongoCollection<TodoItem> collection) => {
     var todo = new TodoItem {
         Title = dto.Title,
@@ -908,13 +981,12 @@ class TodoItem {
 }
 ```
 
-
-
 ## Administration lokalt och i molnet
 
 ### 4.3 Kubernetes Manifest Definitioner
 
 #### Namespace
+
 ```yaml
 # k8s/namespace.yaml
 apiVersion: v1
@@ -929,6 +1001,7 @@ metadata:
 ```
 
 #### StorageClass
+
 ```yaml
 # k8s/storageclass-ebs-gp3.yaml
 apiVersion: storage.k8s.io/v1
@@ -943,6 +1016,7 @@ volumeBindingMode: WaitForFirstConsumer
 ```
 
 **Förklaring:**
+
 - `provisioner: ebs.csi.aws.com` - Använder AWS EBS CSI Driver
 - `type: gp3` - Senaste generation EBS (billigare än gp2)
 - `encrypted: "true"` - Krypterar data at rest
@@ -960,11 +1034,11 @@ metadata:
   name: mongodb
   namespace: eks-mongo-todo
 spec:
-  clusterIP: None  # Headless service
+  clusterIP: None # Headless service
   selector:
     app: mongodb
   ports:
-  - port: 27017
+    - port: 27017
 ```
 
 ```yaml
@@ -986,30 +1060,31 @@ spec:
         app: mongodb
     spec:
       containers:
-      - name: mongo
-        image: mongo:7
-        env:
-        - name: MONGO_INITDB_ROOT_USERNAME
-          value: root
-        - name: MONGO_INITDB_ROOT_PASSWORD
-          value: changeme
-        ports:
-        - containerPort: 27017
-        volumeMounts:
-        - name: data
-          mountPath: /data/db
+        - name: mongo
+          image: mongo:7
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: root
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: changeme
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
   volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      storageClassName: ebs-gp3
-      resources:
-        requests:
-          storage: 5Gi
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ebs-gp3
+        resources:
+          requests:
+            storage: 5Gi
 ```
 
 **Förklaring:**
+
 - `clusterIP: None` - Headless service ger stable DNS: `mongodb-0.mongodb.eks-mongo-todo.svc.cluster.local`
 - `volumeClaimTemplates` - Skapar automatiskt PVC för varje replica
 - `ReadWriteOnce` - Volume kan bara mountas av en node åt gången
@@ -1030,8 +1105,8 @@ spec:
   selector:
     app: todo-backend
   ports:
-  - port: 80
-    targetPort: 8080
+    - port: 80
+      targetPort: 8080
 ```
 
 ```yaml
@@ -1052,18 +1127,19 @@ spec:
         app: todo-backend
     spec:
       containers:
-      - name: api
-        image: "%%IMAGE%%"  # Ersätts av Terraform
-        ports:
-        - containerPort: 8080
-        env:
-        - name: ASPNETCORE_URLS
-          value: "http://+:8080"
-        - name: MONGO_URI
-          value: "mongodb://root:changeme@mongodb:27017/?authSource=admin"
+        - name: api
+          image: "%%IMAGE%%" # Ersätts av Terraform
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: MONGO_URI
+              value: "mongodb://root:changeme@mongodb:27017/?authSource=admin"
 ```
 
 **Förklaring:**
+
 - Service exponerar port 80 externt, routar till pod port 8080
 - `%%IMAGE%%` ersätts av Terraform med faktisk image URL
 - `MONGO_URI` använder service name `mongodb` för DNS resolution
@@ -1084,8 +1160,8 @@ spec:
   selector:
     app: todo-frontend
   ports:
-  - port: 80
-    targetPort: 80
+    - port: 80
+      targetPort: 80
 ```
 
 ```yaml
@@ -1106,13 +1182,14 @@ spec:
         app: todo-frontend
     spec:
       containers:
-      - name: web
-        image: "%%IMAGE%%"
-        ports:
-        - containerPort: 80
+        - name: web
+          image: "%%IMAGE%%"
+          ports:
+            - containerPort: 80
 ```
 
 **Förklaring:**
+
 - NGINX serves static React build på port 80
 - Ingen environment variables behövs (API URL är `/api` via Ingress)
 
@@ -1134,25 +1211,26 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - http:
-      paths:
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: todo-backend
-            port:
-              number: 80
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: todo-frontend
-            port:
-              number: 80
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-backend
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-frontend
+                port:
+                  number: 80
 ```
 
 **Förklaring:**
+
 - `ingressClassName: nginx` - Använder NGINX Ingress Controller
 - Path-based routing: `/api/*` → backend, `/*` → frontend
 - `Prefix` pathType matchar alla sub-paths
@@ -1160,35 +1238,36 @@ spec:
 - Ingen rewrite - paths skickas som de är till backend
 
 ![Nätverksdiagram som beskriver trafikflödet](images/networkdiagram.jpg)
-*Visar hur Internettrafik går via ALB/NLB till Ingress, vidare till Services och respektive pods.*
+_Visar hur Internettrafik går via ALB/NLB till Ingress, vidare till Services och respektive pods._
 
 ![AWS console med Network Load Balancer för todo-eks](images/load-balancer.jpg)
-*AWS Load Balancer Console visar NLB som skapats av Ingress Controller.*
+_AWS Load Balancer Console visar NLB som skapats av Ingress Controller._
 
 ---
 
 ### 4.4 Säkerhetsdesign
 
 ![Säkerhetsdiagram över komponenternas åtkomstkontroller](images/Securitydiagram.jpg)
-*Sammanfattar hur RBAC, Security Groups och IAM/IRSA skyddar trafik mellan komponenterna.*
+_Sammanfattar hur RBAC, Security Groups och IAM/IRSA skyddar trafik mellan komponenterna._
 
 #### 4.4.1 Nätverkssäkerhet
 
 **VPC och Subnets:**
+
 ```hcl
 # infra/terraform/vpc.tf
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
-  
+
   name = "eks-mongo-todo-vpc"
   cidr = "10.0.0.0/16"
-  
+
   azs             = ["eu-west-1a", "eu-west-1b"]
   public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets = ["10.0.101.0/24", "10.0.102.0/24"]
-  
+
   enable_nat_gateway = false  # Cost optimization
-  
+
   # EKS subnet tags
   public_subnet_tags = {
     "kubernetes.io/role/elb" = "1"
@@ -1198,11 +1277,12 @@ module "vpc" {
 ```
 
 ![Publika subnät taggade för EKS Load Balancers](images/subnets.jpg)
-*AWS VPC Console visar public subnets med nödvändiga Kubernetes-taggar.*
+_AWS VPC Console visar public subnets med nödvändiga Kubernetes-taggar._
 
 **Security Groups:**
 
 1. **Cluster Security Group** (skapad av EKS)
+
    - Tillåter kommunikation mellan control plane och worker nodes
    - Port 443 för API Server
 
@@ -1216,10 +1296,11 @@ module "vpc" {
    ```
 
 ![Security group-regler för EKS worker nodes](images/Securtity-groups.jpg)
-*VPC Console visar node security group med inbound-regler för pod-till-pod-trafik.*
+_VPC Console visar node security group med inbound-regler för pod-till-pod-trafik._
 
 **Network Policies (ej implementerat):**
 För production skulle vi lägga till NetworkPolicies:
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -1231,24 +1312,24 @@ spec:
     matchLabels:
       app: todo-backend
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app: ingress-nginx
-    ports:
-    - protocol: TCP
-      port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
   egress:
-  - to:
-    - podSelector:
-        matchLabels:
-          app: mongodb
-    ports:
-    - protocol: TCP
-      port: 27017
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mongodb
+      ports:
+        - protocol: TCP
+          port: 27017
 ```
 
 ---
@@ -1256,6 +1337,7 @@ spec:
 #### 4.4.2 IAM och RBAC
 
 **EBS CSI Driver IAM Role (IRSA):**
+
 ```hcl
 # infra/terraform/addons-ingress.tf
 data "aws_iam_policy_document" "ebs_csi_assume_role" {
@@ -1285,15 +1367,17 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 ```
 
 **Förklaring:**
+
 - IRSA (IAM Roles for Service Accounts) - Kubernetes ServiceAccount kan assume IAM role
 - EBS CSI Driver behöver permissions för CreateVolume, AttachVolume, etc.
 - Ingen access keys i pods - säkrare än node IAM role
 
 ![IAM-roll för EBS CSI Driver med trust policy](images/IAM-roles.jpg)
-*AWS IAM Console visar rollen som används av EBS CSI Driver via IRSA.*
+_AWS IAM Console visar rollen som används av EBS CSI Driver via IRSA._
 
 **Kubernetes RBAC (ej implementerat):**
 För production skulle vi skapa ServiceAccounts med begränsade permissions:
+
 ```yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -1307,9 +1391,9 @@ metadata:
   name: backend-role
   namespace: eks-mongo-todo
 rules:
-- apiGroups: [""]
-  resources: ["configmaps", "secrets"]
-  verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -1317,8 +1401,8 @@ metadata:
   name: backend-rolebinding
   namespace: eks-mongo-todo
 subjects:
-- kind: ServiceAccount
-  name: backend-sa
+  - kind: ServiceAccount
+    name: backend-sa
 roleRef:
   kind: Role
   name: backend-role
@@ -1330,13 +1414,15 @@ roleRef:
 #### 4.4.3 Secrets Management
 
 **Nuvarande implementation (ej production-ready):**
+
 ```yaml
 env:
-- name: MONGO_URI
-  value: "mongodb://root:changeme@mongodb:27017/?authSource=admin"
+  - name: MONGO_URI
+    value: "mongodb://root:changeme@mongodb:27017/?authSource=admin"
 ```
 
 **Bättre approach - Kubernetes Secrets:**
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -1351,14 +1437,15 @@ stringData:
 ---
 # I Deployment:
 env:
-- name: MONGO_URI
-  valueFrom:
-    secretKeyRef:
-      name: mongo-credentials
-      key: uri
+  - name: MONGO_URI
+    valueFrom:
+      secretKeyRef:
+        name: mongo-credentials
+        key: uri
 ```
 
 **Best practice - AWS Secrets Manager:**
+
 ```yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -1369,11 +1456,11 @@ metadata:
 ---
 # I Deployment:
 env:
-- name: MONGO_URI
-  valueFrom:
-    secretKeyRef:
-      name: mongo-credentials  # Synced från AWS Secrets Manager
-      key: uri
+  - name: MONGO_URI
+    valueFrom:
+      secretKeyRef:
+        name: mongo-credentials # Synced från AWS Secrets Manager
+        key: uri
 ```
 
 Med External Secrets Operator eller AWS Secrets CSI Driver.
@@ -1385,6 +1472,7 @@ Med External Secrets Operator eller AWS Secrets CSI Driver.
 **Dockerfile Best Practices:**
 
 **Backend Dockerfile:**
+
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
@@ -1404,6 +1492,7 @@ ENTRYPOINT ["dotnet", "todo-backend.dll"]
 ```
 
 **Frontend Dockerfile:**
+
 ```dockerfile
 FROM node:20-alpine AS build
 WORKDIR /app
@@ -1423,6 +1512,7 @@ EXPOSE 80
 ```
 
 **Security features:**
+
 - Multi-stage builds - mindre image size
 - Alpine base images - färre vulnerabilities
 - Non-root user - begränsar attack surface
@@ -1430,6 +1520,7 @@ EXPOSE 80
 
 **Image Scanning (ej implementerat):**
 För production: Trivy eller AWS ECR image scanning
+
 ```bash
 trivy image ghcr.io/andreasvilhelmsson/todo-backend-v2:latest
 ```
@@ -1439,14 +1530,17 @@ trivy image ghcr.io/andreasvilhelmsson/todo-backend-v2:latest
 #### 4.4.5 Data Encryption
 
 **At Rest:**
+
 - EBS volumes encrypted via StorageClass: `encrypted: "true"`
 - Managed by AWS KMS
 
 **In Transit:**
+
 - HTTPS via Ingress (skulle kräva TLS certificate)
 - MongoDB connection utan TLS (skulle behöva konfigureras)
 
 **Production improvements:**
+
 ```yaml
 # Ingress med TLS
 apiVersion: networking.k8s.io/v1
@@ -1457,16 +1551,14 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   tls:
-  - hosts:
-    - todo.example.com
-    secretName: todo-tls
+    - hosts:
+        - todo.example.com
+      secretName: todo-tls
   rules:
-  - host: todo.example.com
-    http:
-      paths: [...]
+    - host: todo.example.com
+      http:
+        paths: [...]
 ```
-
-
 
 ## Egen applikation på EKS
 
@@ -1475,6 +1567,7 @@ spec:
 #### 4.6.1 CI/CD Pipeline med GitHub Actions
 
 **Workflow för Backend:**
+
 ```yaml
 # .github/workflows/backend-image.yml
 name: build-backend
@@ -1534,6 +1627,7 @@ jobs:
 ```
 
 **Workflow för Frontend:**
+
 ```yaml
 # .github/workflows/frontend-image.yml
 name: build-frontend
@@ -1576,6 +1670,7 @@ jobs:
 ```
 
 **Fördelar med denna pipeline:**
+
 - Automatisk build vid code push
 - Multi-arch images (amd64 + arm64)
 - Layer caching för snabbare builds
@@ -1587,6 +1682,7 @@ jobs:
 #### 4.6.2 Infrastructure as Code med Terraform
 
 **Terraform Struktur:**
+
 ```
 infra/terraform/
 ├── versions.tf           # Provider versions och backend
@@ -1603,6 +1699,7 @@ infra/terraform/
 **Deployment Steps:**
 
 **Steg 1: Skapa infrastruktur**
+
 ```bash
 cd infra/terraform
 
@@ -1620,6 +1717,7 @@ terraform apply
 ```
 
 **Output:**
+
 ```
 Apply complete! Resources: 51 added, 0 changed, 0 destroyed.
 
@@ -1631,6 +1729,7 @@ public_subnets = ["subnet-03ecdfca3144bf3df", "subnet-013ee60c8f7d0f689"]
 ```
 
 **Steg 2: Konfigurera kubectl**
+
 ```bash
 aws eks update-kubeconfig --region eu-west-1 --name todo-eks
 
@@ -1640,6 +1739,7 @@ kubectl get pods --all-namespaces
 ```
 
 **Steg 3: Installera Ingress Controller**
+
 ```bash
 # Lägg till Helm repo
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
@@ -1656,6 +1756,7 @@ kubectl get svc -n ingress-nginx ingress-nginx-controller -w
 ```
 
 **Steg 4: Deploya applikation**
+
 ```bash
 # Applicera alla manifests
 kubectl apply -f k8s/
@@ -1665,6 +1766,7 @@ kubectl apply -f k8s/
 ```
 
 **Steg 5: Verifiera deployment**
+
 ```bash
 # Kolla pods
 kubectl get pods -n eks-mongo-todo
@@ -1681,13 +1783,14 @@ kubectl get svc -n ingress-nginx ingress-nginx-controller \
 ```
 
 ![Detaljerad vy av ingress-NLB med lyssnare och målgrupper](images/load-balancer-detail.jpg)
-*AWS Load Balancer Console visar listeners och target groups för ingresskontrollern.*
+_AWS Load Balancer Console visar listeners och target groups för ingresskontrollern._
 
 #### 4.6.3 Uppdatera Applikation
 
 **Scenario: Ny feature i frontend**
 
 **Steg 1: Utveckla och testa lokalt**
+
 ```bash
 cd app/todo-frontend
 npm run dev
@@ -1697,6 +1800,7 @@ npm run dev
 ```
 
 **Steg 2: Push till GitHub**
+
 ```bash
 git add app/todo-frontend/
 git commit -m "feat: Add new todo feature"
@@ -1704,6 +1808,7 @@ git push origin main
 ```
 
 **Steg 3: GitHub Actions bygger automatiskt**
+
 - Workflow triggas av push
 - Bygger ny image: `ghcr.io/andreasvilhelmsson/todo-frontend-v2:0.1.42`
 - Pushar till GitHub Container Registry
@@ -1711,6 +1816,7 @@ git push origin main
 **Steg 4: Uppdatera Kubernetes**
 
 **Alternativ A: Rolling restart (använder :latest tag)**
+
 ```bash
 kubectl rollout restart deployment/todo-frontend -n eks-mongo-todo
 
@@ -1722,6 +1828,7 @@ kubectl get pods -n eks-mongo-todo
 ```
 
 **Alternativ B: Uppdatera image tag (bättre för production)**
+
 ```bash
 kubectl set image deployment/todo-frontend \
   web=ghcr.io/andreasvilhelmsson/todo-frontend-v2:0.1.42 \
@@ -1732,6 +1839,7 @@ terraform apply -var="frontend_image=ghcr.io/andreasvilhelmsson/todo-frontend-v2
 ```
 
 **Rollback vid problem:**
+
 ```bash
 # Visa rollout history
 kubectl rollout history deployment/todo-frontend -n eks-mongo-todo
@@ -1748,6 +1856,7 @@ kubectl rollout undo deployment/todo-frontend --to-revision=2 -n eks-mongo-todo
 #### 4.6.4 Monitoring och Logging
 
 **Pod Logs:**
+
 ```bash
 # Visa logs
 kubectl logs deployment/todo-backend -n eks-mongo-todo --tail=100
@@ -1760,6 +1869,7 @@ kubectl logs -l app=todo-backend -n eks-mongo-todo --all-containers=true
 ```
 
 **Events:**
+
 ```bash
 # Visa events i namespace
 kubectl get events -n eks-mongo-todo --sort-by='.lastTimestamp'
@@ -1769,6 +1879,7 @@ kubectl get events -n eks-mongo-todo --watch
 ```
 
 **Resource Usage:**
+
 ```bash
 # Node resources
 kubectl top nodes
@@ -1779,6 +1890,7 @@ kubectl top pods -n eks-mongo-todo
 
 **Production Monitoring (ej implementerat):**
 För production skulle vi installera:
+
 - Prometheus + Grafana för metrics
 - ELK Stack eller CloudWatch för logs
 - Jaeger för distributed tracing
@@ -1789,19 +1901,20 @@ För production skulle vi installera:
 
 **Månadskostnad:**
 
-| Resurs | Specifikation | Kostnad/månad |
-|--------|--------------|---------------|
-| EKS Control Plane | Managed Kubernetes | $73 |
-| EC2 Instances | 2x t3.small spot | ~$10 |
-| EBS Volumes | 5GB gp3 | $0.40 |
-| Network Load Balancer | 1x NLB | ~$16 |
-| Data Transfer | Minimal (dev) | ~$1 |
-| **Total** | | **~$100** |
+| Resurs                | Specifikation      | Kostnad/månad |
+| --------------------- | ------------------ | ------------- |
+| EKS Control Plane     | Managed Kubernetes | $73           |
+| EC2 Instances         | 2x t3.small spot   | ~$10          |
+| EBS Volumes           | 5GB gp3            | $0.40         |
+| Network Load Balancer | 1x NLB             | ~$16          |
+| Data Transfer         | Minimal (dev)      | ~$1           |
+| **Total**             |                    | **~$100**     |
 
 ![Kostnadsöversikt per AWS-tjänst från Cost Explorer](images/kostnad.jpg)
-*Cost Explorer visar hur kostnaden fördelas mellan EKS, EC2, NLB och lagring.*
+_Cost Explorer visar hur kostnaden fördelas mellan EKS, EC2, NLB och lagring._
 
 **Kostnadsoptimering:**
+
 - Spot instances istället för On-Demand (70% billigare)
 - Ingen NAT Gateway (sparar $32/månad)
 - Single NLB för alla services via Ingress
@@ -1809,6 +1922,7 @@ För production skulle vi installera:
 - Minimal node count (2 för HA)
 
 **Skalning för production:**
+
 - 3+ nodes för HA: +$15/månad
 - NAT Gateway för private subnets: +$32/månad
 - Större instances (t3.medium): +$20/månad
@@ -1831,6 +1945,7 @@ Single t3.small node kunde inte rymma alla system pods + application pods under 
 Ökade från 1 till 2 nodes. Krävde multi-step AWS CLI commands pga EKS constraints.
 
 **Lärdomar:**
+
 - Planera för rolling update overhead (2x pods under update)
 - t3.small kan rymma ~10-15 pods beroende på resource requests
 - Använd minst 2 nodes för production
@@ -1846,6 +1961,7 @@ Single t3.small node kunde inte rymma alla system pods + application pods under 
 Node security group tillät inte all trafik mellan nodes. EKS skapar bara rules för specifika ports (kubelet, coredns).
 
 **Lösning:**
+
 ```bash
 aws ec2 authorize-security-group-ingress \
   --group-id sg-088f8e66e28c67fb2 \
@@ -1854,9 +1970,11 @@ aws ec2 authorize-security-group-ingress \
 ```
 
 **Lärdomar:**
+
 - Multi-node kluster kräver explicit security group konfiguration
 - Testa pod-to-pod communication mellan nodes
 - Dokumentera security group rules
+- Att göra en checklista beroende på de fel som man har råkat ut för på vägen
 
 ---
 
@@ -1866,21 +1984,25 @@ aws ec2 authorize-security-group-ingress \
 API calls returnerade 404 Not Found.
 
 **Orsak:**
-Ingress rewrite rule strippade `/api` prefix:
+Ingress-regeln ändrade URL:en genom att ta bort (“strippa”) /api från början av sökvägen innan trafiken skickas vidare till backend-servicen.
+
 ```yaml
 nginx.ingress.kubernetes.io/rewrite-target: /$1
 path: /api(/|$)(.*)
 ```
+
 Detta skrev om `/api/todos` → `/todos`, men backend förväntade `/api/todos`.
 
 **Lösning:**
 Tog bort rewrite och använde enkel prefix matching:
+
 ```yaml
 path: /api
 pathType: Prefix
 ```
 
 **Lärdomar:**
+
 - Undvik komplexa regex rewrites om möjligt
 - Testa Ingress routing noggrant
 - Använd `kubectl logs` på Ingress Controller för debugging
@@ -1897,6 +2019,7 @@ Saknade IAM role med permissions för EBS operations.
 
 **Lösning:**
 Skapade IAM role med IRSA (IAM Roles for Service Accounts):
+
 ```hcl
 resource "aws_iam_role" "ebs_csi" {
   name = "todo-eks-ebs-csi-driver"
@@ -1910,24 +2033,35 @@ resource "aws_eks_addon" "ebs_csi" {
 ```
 
 **Lärdomar:**
+
 - EKS addons behöver ofta IAM roles
 - Använd IRSA istället för node IAM roles
+  IRSA (IAM Roles for Service Accounts) är ett sätt för Kubernetes-poddar i EKS att få specifika AWS-rättigheter utan att ge hela noden åtkomst via en node IAM role. Detta ökar säkerheten, följer “least privilege”-principen och är AWS rekommenderade metod i moderna EKS-kluster.
 - Kolla addon status: `kubectl get pods -n kube-system`
 
 ---
 
 ## 6. Slutsats
 
-Detta projekt demonstrerar en komplett deployment av en modern fullstack-applikation till AWS EKS. Genom att använda Infrastructure as Code (Terraform), containerisering (Docker), och Kubernetes orchestrering har vi skapat en skalbar och maintainable lösning.
+Projektet visar inte bara hur man kan deploya en modern fullstack-applikation till EKS med skalbarhet och automatisering – det visar även vilka fallgropar, beroenden och best practices som är avgörande i ett verkligt DevOps-flöde. Kombinationen av Terraform, Docker, Kubernetes och Helm gav ett robust ramverk, men krävde förståelse för IAM-säkerhet, lagring (EBS), nätverk (Ingress), versionskontroll och CI/CD-strategier. Att tolka och lösa alla felmeddelanden är en stor utmaing även med hjälp av LLMer
 
 **Viktiga lärdomar:**
-1. **Kubernetes är kraftfullt men komplext** - Kräver förståelse för många koncept (Pods, Services, Ingress, etc.)
-2. **Infrastructure as Code är essentiellt** - Terraform gör infrastrukturen reproducerbar och versionshanterad
-3. **Security är multi-layered** - Nätverk, IAM, RBAC, Secrets, Container security
-4. **Monitoring är kritiskt** - Logs och metrics behövs för troubleshooting
-5. **Cost optimization matters** - Spot instances, rätt sizing, minimal resurser
+
+1. **Kubernetes är kraftfullt men komplext**
+   Kubernetes erbjuder extrem flexibilitet och skalbarhet, men kräver god förståelse för objekt som Pods, Deployments, Services, Ingress och Volumes. Felkonfigurationer är vanliga i början och små misstag kan orsaka stora problem i hela klustret.
+
+2. **Infrastructure as Code är essentiellt**
+   Med Terraform kan all infrastruktur (VPC, EKS, IAM, nätverk) skapas, uppdateras och återställas på ett reproducerbart sätt. Versionering i Git möjliggör spårbarhet, kodgranskning och enklare samarbete i team.
+3. **Security är multi-layered**
+   Säkerheten sker i flera lager: nätverkspolicies, IAM/IRSA för resurshantering, RBAC i Kubernetes och hantering av Secrets. Minsta möjliga behörighet (Least Privilege) och isolering mellan pods, namespaces och roller är avgörande.
+4. **Monitoring är kritiskt**
+   Utan korrekt loggning och metrics blir det nästan omöjligt att felsöka problem i distribuerade system. Verktyg som Prometheus, Grafana, CloudWatch och kubectl logs är nödvändiga för att övervaka hälsa, resurser och applikationsstatus.
+5. **Cost optimization matters**
+   Molntjänster kostar snabbt om man inte optimerar resurser. Genom att använda rätt instanstyper, autoscaling, spot-instances och ta bort oanvända resurser kan kostnader minimeras utan att påverka prestanda. Dessutom
+   måste jag riva allt så fort jag är klar eftersom det är aldeles för dyrt för mig att ha uppe
 
 **Förbättringar för production:**
+
 - [ ] Implementera NetworkPolicies
 - [ ] Använd AWS Secrets Manager för credentials
 - [ ] Lägg till TLS/HTTPS via cert-manager
@@ -1940,178 +2074,38 @@ Detta projekt demonstrerar en komplett deployment av en modern fullstack-applika
 - [ ] Implementera GitOps med ArgoCD
 
 **Resultat:**
-✅ Fungerande todo-applikation på AWS EKS  
-✅ Automatisk CI/CD med GitHub Actions  
-✅ Infrastructure as Code med Terraform  
-✅ Persistent storage med EBS  
-✅ Public access via Ingress och NLB  
-✅ Kostnadsoptimerad (~$100/månad)  
+
+- Fungerande todo-applikation på AWS EKS
+- Automatisk CI/CD med GitHub Actions
+- Infrastructure as Code med Terraform
+- Persistent storage med EBS
+- Public access via Ingress och NLB
+- Kostnadsoptimerad (~$100/månad)
 
 ---
 
 ## 7. Referenser
 
 **Dokumentation:**
+
 - Kubernetes Official Docs: https://kubernetes.io/docs/
 - AWS EKS User Guide: https://docs.aws.amazon.com/eks/
 - Terraform AWS Provider: https://registry.terraform.io/providers/hashicorp/aws/
 - NGINX Ingress Controller: https://kubernetes.github.io/ingress-nginx/
 
 **Terraform Modules:**
+
 - EKS Module: https://registry.terraform.io/modules/terraform-aws-modules/eks/aws/
 - VPC Module: https://registry.terraform.io/modules/terraform-aws-modules/vpc/aws/
 
 **Tools:**
+
 - kubectl: https://kubernetes.io/docs/tasks/tools/
 - Helm: https://helm.sh/
 - Docker: https://docs.docker.com/
 
 **Git Repository:**
 https://github.com/andreasvilhelmsson/eks-mongo-todo
-
----
-
-## Appendix A: Cloudcraft Diagram Guide
-
-**För att skapa arkitektur-diagrammet i Cloudcraft:**
-
-1. **VPC Setup:**
-   - Dra in "VPC" component
-   - Sätt CIDR: 10.0.0.0/16
-   - Lägg till 2 "Subnet" (public) i olika AZs
-   - Lägg till "Internet Gateway"
-
-2. **EKS Nodes:**
-   - Dra in 2x "EC2" instances
-   - Sätt typ: t3.small
-   - Placera i olika subnets
-   - Lägg till label: "EKS Worker Node"
-
-3. **Load Balancer:**
-   - Dra in "Network Load Balancer"
-   - Anslut till Internet Gateway
-   - Anslut till båda EC2 instances
-
-4. **Storage:**
-   - Dra in "EBS Volume"
-   - Sätt storlek: 5GB, typ: gp3
-   - Anslut till en EC2 instance
-
-5. **Pods (visualisera med ikoner):**
-   - Använd "DynamoDB" ikon för MongoDB (närmaste match)
-   - Använd "Lambda" ikon för Backend
-   - Använd "S3" ikon för Frontend
-   - Placera på EC2 instances
-
-6. **Pilar och labels:**
-   - Dra pilar för trafikflöde
-   - Lägg till text labels för varje komponent
-   - Använd färger för att gruppera (blå för nätverk, grön för compute, orange för storage)
-
-**Exportera:**
-- File → Export → PNG (high resolution)
-- Använd i rapporten
-
----
-
-## Appendix B: AWS Console Screenshots Guide
-
-**Skärmdumpar att inkludera:**
-
-1. **EKS Console - Cluster Overview**
-   - AWS Console → EKS → Clusters → todo-eks
-   - Visa: Status, Version, Endpoint, API server endpoint
-
-2. **EKS Console - Compute Tab**
-   - Visa: Node group med 2 nodes, instance type, capacity type (spot)
-
-3. **EKS Console - Add-ons Tab**
-   - Visa: aws-ebs-csi-driver addon med status Active
-
-4. **EC2 Console - Instances**
-   - Visa: 2 t3.small instances med EKS tags
-
-5. **EC2 Console - Load Balancers**
-   - Visa: Network Load Balancer skapad av Ingress Controller
-
-6. **EC2 Console - Security Groups**
-   - Visa: Node security group med inbound rules
-
-7. **EBS Console - Volumes**
-   - Visa: 5GB gp3 volume kopplat till MongoDB
-
-8. **IAM Console - Roles**
-   - Visa: EBS CSI IAM role med trust policy
-
-9. **VPC Console - Your VPCs**
-   - Visa: VPC med CIDR 10.0.0.0/16
-
-10. **Cost Explorer**
-    - Visa: Kostnad per service (EKS, EC2, EBS, ELB)
-
-**För varje screenshot:**
-- Ta i ljust läge (bättre för PDF)
-- Inkludera relevant information
-- Beskär bort känslig data (account ID kan vara OK)
-- Spara som PNG med hög kvalitet
-
-
-
-### Design & arkitektur
-
-- VPC med **private subnets** för noder och **public subnets** för ev. internet-facing LB.
-- EKS-managed node group (billig profil: t3.small, 1–2 noder, gärna **SPOT**).
-- Namespace `eks-mongo-todo` för isolering och taggning.
-- Backend och frontend körs som **Deployments**; MongoDB som **StatefulSet** med **PVC**.
-- Service-typ: internt **ClusterIP** mellan FE/BE; valfri extern LB/Ingress om public exponering krävs.
-
-
-### IaC: Terraform för VPC + EKS
-
-- **VPC-modul (~> 5.x)**: skapar VPC, subnät, routning, NAT (kan av för lägre kostnad).
-- **Subnet-tags** för EKS & Load Balancers (t.ex. `kubernetes.io/role/internal-elb`).
-- **EKS-modul (~> 19.x)**: skapar kluster, CoreDNS/kube-proxy/VPC CNI-addons och managed node group.
-- **Variabler** styr region, node-typ, min/max, tags och namespace.
-- All kod är **återupprepningsbar** – riv och bygg om med samma resultat.
-
-
-### Containrar & CI/CD (GitHub Actions till GHCR)
-
-- **Dockerfile backend (.NET 9)**: multi-stage (build + runtime), exponerar 8080, `ASPNETCORE_URLS=http://+:8080/`.
-- **Dockerfile frontend (Node 20 + NGINX)**: bygger static assets och serverar via NGINX.
-- **GitHub Actions**:
-  - bygger **multi-arch** images (`linux/amd64,linux/arm64`) med Buildx/QEMU,
-  - taggar `0.1.<run_number>` + `latest`,
-  - push till **GHCR** (paket gärna **Public** för enkel pull från EKS).
-
-
-### Kubernetes-manifest/Helm
-
-- **Namespace** `eks-mongo-todo`.
-- **MongoDB**: StatefulSet + Service + PVC (EBS via StorageClass).
-- **Backend**: Deployment + Service (ClusterIP). Image från GHCR.
-- **Frontend**: Deployment + Service (ClusterIP). Miljövariabel `VITE_API_BASE_URL=/api` (eller intern DNS).
-- **(Valfritt)** Ingress för extern åtkomst; annars port-forward eller ALB/NLB.
-
-
-### Säkerhet
-
-- **RBAC/IRSA** för åtkomst till AWS-resurser (vid behov).
-- **Secrets** för t.ex. GHCR-pull (om images privata) eller DB-lösenord.
-- **NetworkPolicy** (valfritt) för att låsa trafiken mellan komponenter.
-- **Namespace-isolering** och konsekventa **tags** för spårbarhet/kostnad.
-
-
-### Driftsättning & test
-
-1. `terraform init && terraform apply` → skapar VPC + EKS.
-2. `aws eks update-kubeconfig --name todo-eks --region eu-west-1` → sätter kubecontext.
-3. `kubectl apply -f k8s/` → lägger namespace, MongoDB, backend, frontend.
-4. Verifiera:
-   - `kubectl -n eks-mongo-todo get pods,svc`
-   - `kubectl -n eks-mongo-todo port-forward svc/todo-backend 8090:8080` → `curl http://localhost:8090/api/health`
-   - `kubectl -n eks-mongo-todo port-forward svc/todo-frontend 3000:80` → http://localhost:3000
-
 
 ## Arkitekturdiagram (Mermaid)
 
@@ -2130,30 +2124,214 @@ flowchart LR
             end
         end
     end
-    
+
     User((User)) -->|HTTP| alb
     alb --> fe
     fe -->|/api| be
     be --> db
-    
+
     eks --> fe
     eks --> be
     eks --> db
-    
+
     gh[GitHub Actions] --> ghcr[[GitHub Container Registry]]
     ghcr --> eks
 ```
 
 ## Lärdomar och fallgropar
 
-- **ARM64 vs AMD64**: Bygg images som multi-arch (eller matcha nodernas arkitektur). Detta löste `exec format error`.
-- **GHCR behörigheter**: Sätt paket till **Public** eller använd korrekt token/secret för privata paket.
-- **Terraform versionsmatris**: Säkerställ kompatibilitet mellan VPC/EKS-moduler och `hashicorp/aws` provider (t.ex. VPC `~>5.x` kräver aws `~>5.x`).
-- **CoreDNS DEGRADED**: Ge addons tid, öka timeouts, och kontrollera noder/iam/cni om det fastnar.
-- **Kostnad**: Kör 1 nod (t3.small), SPOT, och stäng av publika ingångar när de inte behövs.
+### 5.5 VPC Configuration Typos
+**Problem:** Terraform apply misslyckades med "unknown variable" errors.
 
+**Orsak:** Typos i vpc.tf - `vpc_deor` istället för `vpc_cidr`, `gats` istället för `tags`.
+
+**Lösning:** Korrigerade variabelnamn och tog bort `enable_dns64` (ej supporterat i VPC module v5).
+
+**Lärdomar:**
+- Använd IDE med syntax highlighting
+- Kör `terraform validate` innan apply
+- Läs module documentation noggrant
+
+---
+
+### 5.6 MongoDB Multi-Document YAML
+**Problem:** Terraform kunde inte parsa MongoDB YAML med `---` separator.
+
+**Orsak:** `yamldecode()` function stödjer inte multi-document YAML.
+
+**Lösning:** Splittade i separata filer:
+- `k8s/mongo/service.yaml`
+- `k8s/mongo/statefulset.yaml`
+
+**Lärdomar:**
+- Terraform yamldecode kräver single-document YAML
+- Separata filer ger bättre struktur ändå
+- Använd `kubectl apply -f directory/` för multi-file deploys
+
+---
+
+### 5.7 SASS Import Syntax Deprecation
+**Problem:** Frontend build misslyckades med "@import is deprecated" warnings.
+
+**Orsak:** Modern SASS kräver `@use` istället för `@import`.
+
+**Lösning:** Uppdaterade alla SASS-filer:
+```scss
+// Gammalt
+@import 'variables';
+
+// Nytt
+@use 'variables' as *;
+```
+
+**Lärdomar:**
+- Håll dig uppdaterad med framework deprecations
+- `@use` ger bättre namespace-hantering
+- Testa builds lokalt innan push
+
+---
+
+### 5.8 TypeScript verbatimModuleSyntax
+**Problem:** TypeScript compilation errors: "'type' modifier cannot be used on a named export".
+
+**Orsak:** `verbatimModuleSyntax: true` kräver explicit `import type` syntax.
+
+**Lösning:**
+```typescript
+// Gammalt
+import { Todo } from './types';
+
+// Nytt
+import type { Todo } from './types';
+```
+
+**Lärdomar:**
+- TypeScript 5.0+ har striktare type import rules
+- `verbatimModuleSyntax` förbättrar tree-shaking
+- Använd ESLint rule för att enforcea korrekt syntax
+
+---
+
+### 5.9 Helm Provider Version Conflicts
+**Problem:** Terraform kunde inte initiera Helm provider - syntax errors.
+
+**Orsak:** Blandade Helm provider v2 och v3 syntax.
+
+**Lösning:** Använde tom Helm provider block som ärver från Kubernetes provider:
+```hcl
+provider "helm" {
+  # Inherits from kubernetes provider
+}
+```
+
+**Lärdomar:**
+- Helm provider v2.12+ kan ärva kubernetes config
+- Undvik duplicerad konfiguration
+- Testa provider init separat: `terraform init -upgrade`
+
+---
+
+### 5.10 GitHub Actions Multi-Arch Builds
+**Problem:** Images byggda på GitHub Actions (AMD64) fungerade inte lokalt (ARM64 Mac).
+
+**Orsak:** Single-arch images - `exec format error` vid lokal test.
+
+**Lösning:** Lade till multi-arch build i GitHub Actions:
+```yaml
+- uses: docker/build-push-action@v6
+  with:
+    platforms: linux/amd64,linux/arm64
+```
+
+**Lärdomar:**
+- Bygg alltid multi-arch för portabilitet
+- Använd `docker buildx` för cross-platform builds
+- Testa images på olika arkitekturer
+
+---
+
+### 5.11 Terraform Provider Version Matrix
+**Problem:** `terraform init` misslyckades med "no available releases match the given constraint".
+
+**Orsak:** EKS module v20 kräver AWS provider v6, men VPC module v6 också kräver v6 - circular dependency.
+
+**Lösning:** Downgradade till kompatibla versioner:
+- EKS module: v19.0
+- VPC module: v5.0
+- AWS provider: ~> 5.0
+
+**Lärdomar:**
+- Kontrollera module compatibility matrix
+- Använd `~>` för minor version flexibility
+- Testa `terraform init` efter version changes
+
+---
+
+### 5.12 GHCR Package Permissions
+**Problem:** EKS kunde inte pulla images från GitHub Container Registry - `ImagePullBackOff`.
+
+**Orsak:** Packages var private by default.
+
+**Lösning:** Ändrade package visibility till Public i GitHub settings.
+
+**Alternativ lösning för private packages:**
+```yaml
+imagePullSecrets:
+- name: ghcr-secret
+```
+
+**Lärdomar:**
+- GHCR packages är private by default
+- Public packages kräver ingen authentication
+- För production: använd imagePullSecrets
+
+---
+
+### 5.13 CoreDNS Addon Degraded State
+**Problem:** CoreDNS addon fastnade i DEGRADED state efter EKS creation.
+
+**Orsak:** Addons behöver tid att starta, särskilt på spot instances.
+
+**Lösning:** Ökade Terraform timeouts och väntade 5-10 minuter.
+
+**Lärdomar:**
+- EKS addons kan ta tid att bli Active
+- Spot instances kan fördröja startup
+- Använd `kubectl get pods -n kube-system` för att verifiera
+
+---
+
+### Sammanfattning av Lärdomar
+
+**Planering:**
+- Testa lokalt innan deploy till cloud
+- Använd multi-arch builds från början
+- Dokumentera alla manuella steg
+
+**Terraform:**
+- Validera syntax: `terraform validate`
+- Kontrollera module compatibility
+- Använd consistent versioning (~> 5.0)
+
+**Kubernetes:**
+- Planera för rolling update overhead (2x pods)
+- Minst 2 nodes för multi-node testing
+- Explicit security group rules för inter-node traffic
+
+**Debugging:**
+- `kubectl describe pod` för pod issues
+- `kubectl logs` för application errors
+- `kubectl get events` för cluster events
+- AWS Console för infrastructure issues
+
+**Kostnad:**
+- Använd spot instances (70% billigare)
+- Minimal node count (2 för HA)
+- Destroy när inte i bruk
+- Övervaka med Cost Explorer
 
 ## Referenser
+
 - Kubernetes Docs – https://kubernetes.io/docs/
 - AWS EKS – https://docs.aws.amazon.com/eks/
 - Terraform AWS Modules – https://github.com/terraform-aws-modules
