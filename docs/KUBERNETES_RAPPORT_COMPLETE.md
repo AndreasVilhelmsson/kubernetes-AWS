@@ -31,27 +31,6 @@ jag satt upp allt så gick hela flödet igenom. Beslutade mig dock för att riva
 7. [Lärdomar och fallgropar](#lärdomar-och-fallgropar)
 8. [Referenser](#referenser)
 
----
-
-## Fundament i ett Kubernetes-kluster
-
-# Kubernetes Deployment - Todo Application
-
-## Inlämningsuppgift Cloud Services
-
----
-
-**Namn:** Andreas Vilhelmsson  
-**Kurs:** Cloud Services  
-**Git Repository:** https://github.com/andreasvilhelmsson/eks-mongo-todo  
-**Datum:** Oktober 2025
-
----
-
-## Sammanfattning
-
-Detta projekt demonstrerar deployment av en fullstack todo-applikation till AWS EKS (Elastic Kubernetes Service). Applikationen består av en React/TypeScript frontend, .NET backend API, och MongoDB databas. Projektet omfattar infrastruktur som kod med Terraform, CI/CD med GitHub Actions, och Kubernetes-manifest för orchestrering.
-
 **Teknologier:**
 
 - Kubernetes (AWS EKS)
