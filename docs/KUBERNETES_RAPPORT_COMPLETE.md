@@ -2139,14 +2139,19 @@ https://github.com/andreasvilhelmsson/eks-mongo-todo
 ## Arkitekturdiagram (Mermaid)
 
 ```mermaid
-flowchart LR
-  subgraph AWS[VPC eu-west-1]
-    subgraph PublicSubnets[Public Subnets]
+graph LR
+  User((User)) -->|HTTP| ALB
+  ALB --> FE
+  FE -->|/api| BE
+  BE --> DB
+
+  subgraph "AWS VPC (eu-west-1)"
+    subgraph "Public Subnets"
       ALB[ALB/NLB (optional)]
     end
-    subgraph PrivateSubnets[Private Subnets]
+    subgraph "Private Subnets"
       EKS[(EKS Cluster)]
-      subgraph NS[Namespace: eks-mongo-todo]
+      subgraph "Namespace: eks-mongo-todo"
         FE[Frontend Deployment]
         BE[Backend Deployment]
         DB[(MongoDB StatefulSet + PVC/EBS)]
@@ -2157,23 +2162,19 @@ flowchart LR
     end
   end
 
-  User((User)) -->|HTTP| ALB
-  ALB --> FE
-  FE -->|/api| BE
-  BE --> DB
-
-  GH[GitHub Actions] --> GHCR[(GHCR)] --> EKS
+  GH[GitHub Actions] --> GHCR[(GitHub Container Registry)]
+  GHCR --> EKS
 ```
 
 
 ## Skärmdumpar
 
-![Cluster-nodes.jpeg](./images/Cluster-nodes.jpeg)
-![Cluster-overview.jpeg](./images/Cluster-overview.jpeg)
-![EBS-Volumes-details.jpeg](./images/EBS-Volumes-details.jpeg)
-![EBS-volumes.jpeg](./images/EBS-volumes.jpeg)
-![IAM-roles.jpeg](./images/IAM-roles.jpeg)
-![load-balancer-detail.jpeg](./images/load-balancer-detail.jpeg)
+![Cluster nodes](images/Cluster-nodes.jpg)
+![Cluster overview](images/Cluster-overview.jpg)
+![EBS volume details](images/EBS-Volumes-details.jpg)
+![EBS volumes](images/EBS-volumes.jpg)
+![IAM roles](images/IAM-roles.jpg)
+![Load balancer detail](images/load-balancer-detail.jpg)
 
 
 ## Lärdomar och fallgropar
